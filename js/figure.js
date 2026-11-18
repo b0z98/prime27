@@ -16,7 +16,7 @@
 
   var TH = 37, SH = 36, TO = 43, UA = 25, FA = 23, NK = 7.5, HR = 9.5, SHW = 15.5, HPW = 8.5;
   var D = Math.PI / 180, TAU = Math.PI * 2;
-  var VW = 240, VH = 214, GY = 25, CX = 120, PIT = 0.22;
+  var VW = 228, VH = 204, GY = 23, CX = 120, PIT = 0.22;
 
   // ---------- poses
   function mix(a, b, u) {
@@ -237,7 +237,7 @@
     // projection : rotation autour de la verticale, puis légère plongée
     function P(p) { var u = p[0] - CX, ww = p[2] || 0, d = u * sn + ww * c; return [CX + u * c - ww * sn, p[1] - d * PIT, d]; }
 
-    var skin = L.skin || '#e6c3ab', shorts = L.shorts || '#eef2f2', shoe = L.shoe || '#f5f7f7';
+    var skin = L.skin || '#e6c3ab', shorts = L.shorts || '#2b3640', shoe = L.shoe || '#f5f7f7';
     var C = {
       skin: skin, skinF: shade(skin, 0.86), nose: shade(skin, 0.93), hair: L.hair || '#35261f', ink: L.eye || '#1d1512', mouth: shade(skin, 0.7),
       shirt: shirt, shirtF: shade(shirt, 0.74), shorts: shorts, shortsF: shade(shorts, 0.82),
@@ -257,6 +257,53 @@
       ctx.beginPath(); ctx.arc(a[0], a[1], r1, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.arc(b[0], b[1], r2, 0, TAU); ctx.fill();
     }
+    // ----- volume : lumière en haut à gauche, ombre en bas à droite
+    var LX = -0.55, LY = 0.83;
+    function shadeOver(cx, cy, nx, ny, r, k) {
+      if (nx * LX + ny * LY < 0) { nx = -nx; ny = -ny; }
+      var g = ctx.createLinearGradient(cx + nx * r, cy + ny * r, cx - nx * r, cy - ny * r);
+      g.addColorStop(0, 'rgba(255,255,255,' + (0.26 * k).toFixed(3) + ')');
+      g.addColorStop(0.36, 'rgba(255,255,255,0)');
+      g.addColorStop(0.6, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,' + (0.32 * k).toFixed(3) + ')');
+      ctx.fillStyle = g; ctx.fill();
+    }
+    function edge() { ctx.strokeStyle = 'rgba(8,16,20,0.28)'; ctx.lineWidth = 0.55; ctx.lineJoin = 'round'; ctx.stroke(); }
+    // membre d'un seul tenant : de a (rayon ra) à b (rayon rb), renflé au point m (rN côté normale, rS côté opposé)
+    function limb(a, ra, m, rN, rS, b, rb, col, k) {
+      var dx = b[0] - a[0], dy = b[1] - a[1], d = Math.sqrt(dx * dx + dy * dy);
+      ctx.beginPath();
+      var nx, ny, rr = Math.max(ra, rb, rN, rS);
+      if (d < Math.abs(ra - rb) + 0.6) {
+        ctx.arc((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, rr, 0, TAU); nx = 1; ny = 0;
+      } else {
+        var ux = dx / d, uy = dy / d, an;
+        nx = -uy; ny = ux; an = Math.atan2(ny, nx);
+        var aL = [a[0] + nx * ra, a[1] + ny * ra], bL = [b[0] + nx * rb, b[1] + ny * rb], mL = [m[0] + nx * rN, m[1] + ny * rN];
+        var aR = [a[0] - nx * ra, a[1] - ny * ra], bR = [b[0] - nx * rb, b[1] - ny * rb], mR = [m[0] - nx * rS, m[1] - ny * rS];
+        ctx.moveTo(aL[0], aL[1]);
+        ctx.quadraticCurveTo(2 * mL[0] - (aL[0] + bL[0]) / 2, 2 * mL[1] - (aL[1] + bL[1]) / 2, bL[0], bL[1]);
+        ctx.arc(b[0], b[1], rb, an, an - Math.PI, true);
+        ctx.quadraticCurveTo(2 * mR[0] - (aR[0] + bR[0]) / 2, 2 * mR[1] - (aR[1] + bR[1]) / 2, aR[0], aR[1]);
+        ctx.arc(a[0], a[1], ra, an + Math.PI, an, true);
+        ctx.closePath();
+      }
+      ctx.fillStyle = col; ctx.fill();
+      shadeOver((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, nx, ny, rr, k == null ? 1 : k);
+      edge();
+    }
+    function capS(a, r1, b, r2, col, k) {
+      var m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], r = (r1 + r2) / 2;
+      limb(a, r1, m, r, r, b, r2, col, k);
+    }
+    function ball(c0, r, col, k) {
+      ctx.beginPath(); ctx.arc(c0[0], c0[1], r, 0, TAU);
+      ctx.fillStyle = col; ctx.fill();
+      var g = ctx.createRadialGradient(c0[0] + LX * r * 0.45, c0[1] + LY * r * 0.45, 0, c0[0], c0[1], r * 1.05);
+      g.addColorStop(0, 'rgba(255,255,255,' + (0.22 * (k || 1)).toFixed(3) + ')'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,' + (0.3 * (k || 1)).toFixed(3) + ')');
+      ctx.fillStyle = g; ctx.fill(); edge();
+    }
+    function lerp2(p, q2, u2) { return [p[0] + (q2[0] - p[0]) * u2, p[1] + (q2[1] - p[1]) * u2]; }
     function line(a, b, lw, col) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
     function disc(a, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(a[0], a[1], r, 0, TAU); ctx.fill(); }
     function ell(a, rx, ry, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(a[0], a[1], rx, ry, 0, 0, TAU); ctx.fill(); }
@@ -279,32 +326,45 @@
     var g0 = P([J.A[0][0], 0, J.A[0][2]]), g1 = P([J.A[1][0], 0, J.A[1][2]]), g2 = P([J.hip[0], 0, 0]), g3 = P([J.sh[0], 0, 0]);
     var gx0 = Math.min(g0[0], g1[0], g2[0], g3[0]), gx1 = Math.max(g0[0], g1[0], g2[0], g3[0]);
     ell([(gx0 + gx1) / 2, (g0[1] + g1[1] + g2[1]) / 3 - 1], (gx1 - gx0) / 2 + 13, 5.5, 'rgba(0,0,0,0.3)');
+    // ombres de contact sous les pieds posés
+    for (i = 0; i < 2; i++) {
+      var fy = J.A[i][1];
+      if (fy < 12) ell(P([J.A[i][0] + (front ? 0 : 3), 0, J.A[i][2]]), 8, 2.2, 'rgba(0,0,0,' + (0.42 * (1 - fy / 12)).toFixed(3) + ')');
+    }
 
     // ----- corps
     function leg(k) {
       var f = k === far, sk = f ? C.skinF : C.skin, st = f ? C.shortsF : C.shorts, sh = f ? C.shoeF : C.shoe;
-      var H = P(J.H[k]), K = P(J.K[k]), A = P(J.A[k]), a = J.A[k], heel, toe, s1, s2;
-      cap(K, 5.2, A, 3.7, sk); cap(H, 7, K, 5.4, sk);
-      cap(H, 7.7, [H[0] + (K[0] - H[0]) * 0.52, H[1] + (K[1] - H[1]) * 0.52], 6.8, st);
+      var H = P(J.H[k]), K = P(J.K[k]), A = P(J.A[k]), a = J.A[k], heel, toe, s1, s2, tip;
       if (front) {
         var sg = k === 0 ? 1 : -1;
         heel = P([a[0], a[1] - 1.9, -3]); toe = P([a[0] + sg * 2.5, a[1] - 2.5, 10]);
-        s1 = P([a[0], a[1] - 4.6, -5]); s2 = P([a[0] + sg * 2.8, a[1] - 4.6, 11.5]);
+        s1 = P([a[0], a[1] - 4.8, -5]); s2 = P([a[0] + sg * 2.8, a[1] - 4.8, 11.8]);
+        tip = P([a[0], a[1], 10]);
       } else {
         var an = J.fa[k] * D, cc = Math.cos(an), ss = Math.sin(an);
-        var L = function (x, y) { return P([a[0] + x * cc - y * ss, a[1] + x * ss + y * cc, a[2]]); };
-        heel = L(-3.4, -1.7); toe = L(10, -2.3); s1 = L(-5.4, -4.5); s2 = L(11.4, -4.5);
+        var Lf = function (x, y) { return P([a[0] + x * cc - y * ss, a[1] + x * ss + y * cc, a[2]]); };
+        heel = Lf(-3.6, -1.6); toe = Lf(10.4, -2.3); s1 = Lf(-5.6, -4.7); s2 = Lf(11.8, -4.7); tip = Lf(10, 0);
       }
-      cap(heel, 3.3, toe, 2.7, sh); line(s1, s2, 1.5, C.sole);
+      // mollet plus marqué à l'arrière de la jambe (côté opposé aux orteils)
+      var dx = A[0] - K[0], dy = A[1] - K[1], dl = Math.sqrt(dx * dx + dy * dy) || 1, tx = tip[0] - A[0], ty = tip[1] - A[1];
+      var frontN = (-dy / dl) * tx + (dx / dl) * ty > 0;
+      limb(K, 5, lerp2(K, A, 0.3), frontN ? 4.9 : 6.1, frontN ? 6.1 : 4.9, A, 3.4, sk);
+      limb(H, 7.5, lerp2(H, K, 0.42), 8, 7.6, K, 5.3, sk);
+      limb(H, 7.8, lerp2(H, K, 0.22), 8.1, 8.1, lerp2(H, K, 0.46), 7.4, st, 0.8);
+      capS(heel, 3.6, toe, 3, sh);
+      line(s1, s2, 1.8, C.sole);
     }
     function arm(k) {
       var f = k === far, sk = f ? C.skinF : C.skin, S = P(J.S[k]), E = P(J.E[k]), W = P(J.W[k]);
-      cap(S, 5, E, 4.3, sk); cap(E, 4.1, W, 3.3, sk); disc(W, 3.7, sk);
-      if (!L.tank) cap(S, 6, [S[0] + (E[0] - S[0]) * 0.5, S[1] + (E[1] - S[1]) * 0.5], 5.4, f ? C.shirtF : C.shirt);
-    }
-    function neck() {
+      limb(S, 5.1, lerp2(S, E, 0.45), 5.7, 5.5, E, 4, sk);
+      limb(E, 4.2, lerp2(E, W, 0.3), 4.7, 4.5, W, 3, sk);
+      ball(W, 3.9, sk);
+      if (!L.tank) limb(S, 6.3, lerp2(S, E, 0.25), 6.2, 6.2, lerp2(S, E, 0.5), 5.6, f ? C.shirtF : C.shirt, 0.8);
+      else ball(S, 5.6, sk, 0.8);
+    }    function neck() {
       var a = P(J.sh), b = P(J.head);
-      cap(a, 3.8, [a[0] + (b[0] - a[0]) * 0.6, a[1] + (b[1] - a[1]) * 0.6], 3.6, C.skinF);
+      capS(a, 4, [a[0] + (b[0] - a[0]) * 0.6, a[1] + (b[1] - a[1]) * 0.6], 3.7, C.skinF, 0.7);
     }
     function torso() {
       var t2 = J.t, k;
@@ -319,7 +379,7 @@
         gg.addColorStop(0, C.shirt); gg.addColorStop(1, L.shirt2 || C.shirt); ctx.fillStyle = gg;
       } else ctx.fillStyle = C.shirt;
       ctx.fill();
-      if (!pat || pat === 'gradient' || pat === 'neon') return;
+      if (!pat || pat === 'gradient' || pat === 'neon') { torsoShade(pts); return; }
       ctx.save(); ctx.clip();
       function at2(u2, v2) { return lerp(lerp(d2, a, v2), lerp(c2, b, v2), u2); }
       if (pat === 'stripe') {
@@ -344,7 +404,18 @@
         line(at2(f2 + 0.05, -0.2), at2(f2 + 0.3, 1.2), 1.6, 'rgba(255,248,214,0.35)');
       }
       ctx.restore();
-    }    function head() {
+      torsoShade(pts);
+    }
+    // ombrage du buste (cylindre autour de la colonne) et encolure
+    function torsoShade(pts) {
+      var hp = P(J.hip), sp = P(J.sh), ax = sp[0] - hp[0], ay = sp[1] - hp[1], al = Math.sqrt(ax * ax + ay * ay) || 1;
+      var cx = (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4, cy = (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4;
+      var wdt = Math.max(Math.abs((pts[1][0] - pts[0][0]) * (-ay / al) + (pts[1][1] - pts[0][1]) * (ax / al)) / 2 + 7, 11);
+      roundPoly(ctx, pts, 6.5);
+      shadeOver(cx, cy, -ay / al, ax / al, wdt, 0.95);
+      edge();
+    }
+    function head() {
       var hd = J.head, u = J.hu, up = [u[0], u[1], 0], fr, sd, st = L.style || 'short', wear = L.wear, k, th, rr;
       if (front) { fr = [0, 0, 1]; sd = [u[1], -u[0], 0]; } else { fr = [u[1], -u[0], 0]; sd = [0, 0, 1]; }
       function at(a, b, kk) { return P([hd[0] + HR * (a * fr[0] + b * up[0] + kk * sd[0]), hd[1] + HR * (a * fr[1] + b * up[1] + kk * sd[1]), HR * (a * fr[2] + kk * sd[2])]); }
@@ -420,6 +491,15 @@
           cap(at(0.32, -0.6, k * 0.74), 2.4, at(0.8, -0.9, k * 0.24), 3, L.beard);
         }
         disc(at(0.82, -0.9, 0), 3.2, L.beard);
+        ctx.restore();
+      }
+      // volume du visage, joues
+      for (k = -1; k <= 1; k += 2) if (dep(0.7, k * 0.5) > 0.2) disc(at(0.74, -0.4, k * 0.52), 1.8, 'rgba(255,110,90,0.12)');
+      if (st !== 'afro') {
+        ctx.save(); clipHead();
+        var lc = [faceC[0] + LX * HR * 0.55, faceC[1] + LY * HR * 0.55], rg2 = ctx.createRadialGradient(lc[0], lc[1], 0, faceC[0], faceC[1], HR * 1.4);
+        rg2.addColorStop(0, 'rgba(255,255,255,0.15)'); rg2.addColorStop(0.5, 'rgba(255,255,255,0)'); rg2.addColorStop(1, 'rgba(0,0,0,0.3)');
+        ctx.fillStyle = rg2; ctx.fillRect(faceC[0] - 24, faceC[1] - 24, 48, 48);
         ctx.restore();
       }
       if (facing > -0.45) disc(at(1.1, -0.24, 0), 1.6, facing > 0.45 ? C.nose : C.skin);

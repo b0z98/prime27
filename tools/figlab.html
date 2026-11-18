@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRIME27 — atelier du personnage (outil de mise au point)</title>
+<style>
+  body { margin: 0; background: #0b1920; color: #f0f4f0; font: 12px system-ui, sans-serif; }
+  .g { display: grid; grid-template-columns: repeat(var(--cols, 3), 1fr); gap: 4px; padding: 4px; }
+  .c { position: relative; }
+  .c b { position: absolute; left: 6px; top: 4px; z-index: 1; }
+  canvas { width: 100%; aspect-ratio: 6 / 5; display: block; }
+</style>
+</head>
+<body>
+<div class="g" id="g"></div>
+<script src="../js/figure.js"></script>
+<script src="../js/exercises.js"></script>
+<script>
+/* ?ex=id@temps,id@temps … &cols=3 &look=classique &anim=1 &focus=head */
+(function () {
+  var q = new URLSearchParams(location.search), g = document.getElementById('g');
+  g.style.setProperty('--cols', q.get('cols') || 3);
+  var LOOKS = {
+    classique: { skin: '#e6c3ab', hair: '#35261f', style: 'short' },
+    barbu: { skin: '#c99b76', style: 'bald', beard: '#2a1d17', shirt: '#1b2226', shorts: '#11171a', shoe: '#1b2226', sole: '#e9eef0' },
+    debardeur: { skin: '#8a5a3b', hair: '#151010', style: 'short', band: '#e8332a', shirt: '#f2f4f4', tank: true, shorts: '#1b2226', shoe: '#1b2226' }
+  };
+  var look = LOOKS[q.get('look') || 'classique'];
+  (q.get('ex') || 'kb_swing@0.6,db_press@1,row@0.4').split(',').forEach(function (s) {
+    var parts = s.split('@'), ex = PRIME_EX[parts[0]], t = parts[1] != null ? +parts[1] : null;
+    var d = document.createElement('div'); d.className = 'c';
+    d.innerHTML = '<b>' + parts[0] + (t != null ? ' @' + t : '') + '</b>';
+    var c = document.createElement('canvas'); d.appendChild(c); g.appendChild(d);
+    var o = { shirt: '#ff6250', look: look, bg: 'full', focus: q.get('focus') || null, heat: +(q.get('heat') || 0) };
+    if (q.get('anim') || t == null) PrimeFig.mount(c, ex, o);
+    else PrimeFig.mount(c, Object.assign({}, ex, { th: t }), Object.assign(o, { still: true }));
+  });
+})();
+</script>
+</body>
+</html>

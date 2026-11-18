@@ -399,6 +399,17 @@
       '<span class="row-t"><b>' + esc(ex.n) + '</b><small>' + esc(ex.m) + (ex.load && w ? ' · ' + w : '') + '</small></span>' +
       '<span class="row-d">' + right + '</span></button></li>';
   }
+  // rappel de la dernière fois sur la fiche d'une séance
+  function lastLine(s) {
+    var h = null, i;
+    for (i = db.history.length - 1; i >= 0; i--) if (db.history[i].sid === s.id && counts(db.history[i])) { h = db.history[i]; break; }
+    if (!h) return '<p class="last">Première fois : les charges et scores proposés serviront de point de départ.</p>';
+    var bits = [niceDate(parseYmd(h.date))];
+    if (h.kcal) bits.push(num(h.kcal) + ' kcal');
+    if (h.hr && h.hr.avg) bits.push(h.hr.avg + ' bpm moy.');
+    if (h.rpe) bits.push('effort ' + h.rpe + '/10');
+    return '<p class="last"><b>Dernière fois</b> · ' + bits.join(' · ') + '</p>';
+  }
   function viewSession(s) {
     if (!s) return viewHome();
     var tl = timeline(s), W = PROG.warmups[s.warmup || 'A'], S = PROG.stretch;
@@ -416,15 +427,14 @@
     return '<div class="view v-session s-' + s.type + '">' +
       '<button class="back" data-go="home">' + I.back + 'Semaine</button>' +
       '<header class="hero"><p class="eyebrow acc">' + TYPE[s.type] + (s.core ? '' : ' · séance bonus') + '</p>' +
-        '<h1 class="disp hero-name">' + esc(s.name) + '</h1><p class="lede">' + esc(s.intro) + '</p></header>' +
+        '<h1 class="disp hero-name">' + esc(s.name) + '</h1><p class="lede">' + esc(s.intro) + '</p>' + lastLine(s) + '</header>' +
       '<dl class="facts">' +
         '<div><dt>Durée</dt><dd class="disp">' + fmt(tl.main) + '</dd><small>+ ' + fmt(tl.stretch) + ' d’étirements</small></div>' +
         '<div><dt>Mouvements</dt><dd class="disp">' + tl.moves.length + '</dd><small>hors échauffement</small></div>' +
         '<div><dt>Format</dt><dd class="fmt">' + esc(s.format) + '</dd></div>' +
       '</dl>' +
       '<section class="plan">' + frise(s, true) + '<div class="scale"><span style="left:0">0</span><span style="left:' + (300 / tl.total * 100).toFixed(1) + '%">5</span>' +
-        '<span style="left:' + (tl.main / tl.total * 100).toFixed(1) + '%;transform:translateX(-100%)">' + Math.round(tl.main / 60) + '</span>' +
-        '<span style="right:0">' + Math.round(tl.total / 60) + ' min</span></div></section>' +
+        '<span style="right:0">' + Math.round(tl.main / 60) + ' + ' + Math.round(tl.stretch / 60) + ' min</span></div></section>' +
       '<section><h2 class="h2">Matériel à prévoir</h2><ul class="chips">' + sessionEquip(tl).map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul></section>' +
       '<section class="blocks"><h2 class="h2">Déroulé</h2>' +
         '<article class="blk"><header><div><h3 class="disp">Échauffement</h3><p>Sans matériel' + (s.warmup === 'B' ? ', rameur en douceur' : '') + '</p></div><div class="blk-t"><b>5:00</b><span>enchaîné</span></div></header><ul class="rows">' +
@@ -1714,10 +1724,10 @@
     var h = '<section><h2 class="h2">Compte et sauvegarde</h2>';
     if (cloud.state === 'in') {
       var u = cloud.user || {}, st = cloud.busy ? 'Synchronisation en cours…' : cloud.pending ? 'En attente de réseau : la sauvegarde partira dès que possible.' : cloud.last ? 'Sauvegardé ' + ago(cloud.last) + '.' : 'Connecté.';
-      h += '<div class="acc on"><span class="acc-dot"></span><span><b>' + esc(u.email || 'Compte connecté') + '</b><small>' + st + ' Tout se sauvegarde tout seul.</small></span></div>' +
+      h += '<div class="acct on"><span class="acc-dot"></span><span><b>' + esc(u.email || 'Compte connecté') + '</b><small>' + st + ' Tout se sauvegarde tout seul.</small></span></div>' +
         '<div class="btnrow"><button class="btn sm" data-act="syncnow">Synchroniser maintenant</button><button class="btn sm ghost" data-act="signout">Se déconnecter</button></div>';
     } else if (cloud.state === 'wait' || cloud.state === 'loading') {
-      h += '<div class="acc"><span class="acc-dot"></span><span><b>Compte connecté</b><small>' + (cloud.state === 'wait' ? 'Pas de réseau : la synchronisation reprendra toute seule.' : 'Connexion au compte…') + '</small></span></div>';
+      h += '<div class="acct"><span class="acc-dot"></span><span><b>Compte connecté</b><small>' + (cloud.state === 'wait' ? 'Pas de réseau : la synchronisation reprendra toute seule.' : 'Connexion au compte…') + '</small></span></div>';
     } else if (cloud.state === 'out') {
       h += '<p class="hint">Connecte-toi pour sauvegarder ta progression automatiquement et la retrouver sur un autre téléphone.</p>' +
         '<div class="btncol"><button class="btn go-g" data-act="google">' + I.google + 'Continuer avec Google</button><button class="btn" data-act="email">Continuer avec un e-mail</button></div>';
@@ -1871,5 +1881,9 @@
   if (!db.settings.onboarded && !db.history.length) openWelcome();
   if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude/.test(location.hostname)) {
     try { navigator.serviceWorker.register('sw.js').catch(function () { /* hors ligne indisponible */ }); } catch (e) { /* rien */ }
+  }
+  // outils de test, uniquement sur le serveur local
+  if (location.hostname === 'localhost') {
+    window.__prime = { timeline: timeline, findSession: findSession, db: function () { return db; }, setEquip: setEquip, resetTimelines: resetTimelines, stats: stats, EQUIP: EQUIP, canDo: canDo };
   }
 })();
