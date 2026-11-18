@@ -1,0 +1,19 @@
+{
+  "name": "PRIME27",
+  "short_name": "PRIME27",
+  "description": "Séances HIIT de 45 minutes : minuteur, coach vocal, mouvements animés et badges.",
+  "lang": "fr",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1920",
+  "theme_color": "#0b1920",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

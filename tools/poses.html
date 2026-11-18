@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRIME27 — planche de poses (outil de mise au point)</title>
+<style>
+  body { margin: 0; padding: 12px; font: 12px system-ui, sans-serif; background: #dfe5e1; color: #10222b; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .cell { background: #f4f6f3; border-radius: 6px; padding: 4px; }
+  .cell b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  canvas { width: 100%; aspect-ratio: 6 / 5; display: block; }
+  h1 { font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>Planche de poses — ?ex=id1,id2 pour filtrer, ?anim=1 pour animer, ?from=0&amp;n=12 pour paginer</h1>
+<div class="grid" id="g"></div>
+<script src="../js/figure.js"></script>
+<script src="../js/exercises.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), only = q.get('ex'), anim = q.get('anim');
+  var ids = only ? only.split(',') : Object.keys(PRIME_EX);
+  var from = +(q.get('from') || 0), n = +(q.get('n') || 999);
+  ids = ids.slice(from, from + n);
+  var g = document.getElementById('g');
+  if (q.get('w')) g.style.gridTemplateColumns = 'repeat(auto-fill, minmax(' + q.get('w') + 'px, 1fr))';
+  ids.forEach(function (id) {
+    var ex = PRIME_EX[id];
+    var times = [];
+    if (anim) times = [null];
+    else if (ex.fn) times = [0, 0.3, 0.6, 0.9];
+    else { var acc = 0; for (var i = 0; i < ex.k.length; i++) { times.push(acc); acc += ex.t[i]; } }
+    times.forEach(function (t, i) {
+      var cell = document.createElement('div'); cell.className = 'cell';
+      var c = document.createElement('canvas');
+      cell.innerHTML = '<b>' + id + (t === null ? '' : ' · K' + i) + '</b>';
+      cell.appendChild(c); g.appendChild(cell);
+      if (t === null) PrimeFig.mount(c, ex, {});
+      else PrimeFig.mount(c, Object.assign({}, ex, { th: t + 0.0001 }), { still: true, shirt: '#f0a01c' });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="fire" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff3d2e"/>
+      <stop offset=".55" stop-color="#ff7a1a"/>
+      <stop offset="1" stop-color="#ffd23f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".56" r=".5">
+      <stop offset="0" stop-color="#ff6a1a" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="#0b1920"/>
+  <circle cx="256" cy="262" r="210" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#1d3a47" stroke-width="30"/>
+  <circle cx="256" cy="256" r="176" fill="none" stroke="url(#fire)" stroke-width="30" stroke-linecap="round" stroke-dasharray="830 1106" transform="rotate(-90 256 256)"/>
+  <path fill="url(#fire)" d="M256 104C298 160 350 196 350 282C350 342 308 388 256 388C204 388 162 342 162 282C162 238 186 208 206 188C210 224 222 246 242 258C234 206 236 154 256 104Z"/>
+  <path d="M206 344L256 294L306 344" fill="none" stroke="#0b1920" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
