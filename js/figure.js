@@ -93,7 +93,7 @@
     if (hw == null) {
       hw = 14.5;
       for (k = 0; k < P.length; k++) {
-        if (P[k][0] === 'kb' || P[k][0] === 'ball' || P[k][0] === 'db1') hw = 4.5;
+        if (P[k][0] === 'kb' || P[k][0] === 'ball' || P[k][0] === 'db1') hw = 7.5;
         else if (P[k][0] === 'rower' || P[k][0] === 'bike') hw = 8.5;
         else if (P[k][0] === 'ski') hw = 11;
       }
@@ -510,12 +510,17 @@
       }
       var brow = bald || capOn ? shade(skinBase, 0.5) : C.hair;
       if (capOn && L.hair) brow = L.hair;
+      // effort : yeux plissés, sourcils froncés, bouche qui serre les dents
+      var eff = Math.max(0, Math.min(1, o.effort || 0));
       for (k = -1; k <= 1; k += 2) if (dep(0.8, k * 0.42) > 0.14) {
-        ell(at(0.84, 0.04, k * 0.4), 1.45, 1.1, '#f6f2ec');
-        disc(at(0.93, 0.03, k * 0.37), 0.85, C.ink);
-        line(at(0.8, 0.37, k * 0.62), at(0.9, 0.31, k * 0.17), 1.15, brow);
+        ell(at(0.84, 0.04, k * 0.4), 1.45, 1.1 * (1 - 0.45 * eff), '#f6f2ec');
+        disc(at(0.93, 0.03, k * 0.37), 0.85 * (1 - 0.2 * eff), C.ink);
+        line(at(0.8, 0.37 + 0.03 * eff, k * 0.62), at(0.9, 0.31 - 0.11 * eff, k * 0.17), 1.15 + 0.35 * eff, brow);
       }
-      if (facing > 0.2 && !L.beard) {
+      if (facing > 0.1 && eff > 0.55) {
+        ell(at(0.99, -0.6, 0), 1.6, 0.5 + 0.9 * eff, '#3a1612');
+        line(at(1.02, -0.52, -0.14), at(1.02, -0.52, 0.14), 0.75, '#f4efe8');
+      } else if (facing > 0.2 && !L.beard) {
         var m0 = at(0.96, -0.55, -0.22), m1 = at(0.99, -0.61, 0), m2 = at(0.96, -0.55, 0.22);
         line(m0, m1, 1, C.mouth); line(m1, m2, 1, C.mouth);
       }
@@ -562,9 +567,9 @@
       var ax = mode === 'e' ? [0, 0, 1] : mode === 'v' ? [0, 1, 0] : mode === 'f' ? [-f2[1], f2[0], 0] : [1, 0, 0];
       var a = P([ct[0] - ax[0] * 6.4, ct[1] - ax[1] * 6.4, (ct[2] || 0) - ax[2] * 6.4]), b = P([ct[0] + ax[0] * 6.4, ct[1] + ax[1] * 6.4, (ct[2] || 0) + ax[2] * 6.4]), sw;
       if (a[2] > b[2]) { sw = a; a = b; b = sw; }
-      disc(a, 4.7, C.iron); ellS(a, 4.7, 4.7, 0.8, C.rim);
+      ball(a, 4.7, C.iron, 0.9);
       line(a, b, 2.3, C.steel);
-      disc(b, 4.9, C.iron); ellS(b, 4.9, 4.9, 0.8, C.rim);
+      ball(b, 4.9, C.iron, 0.9);
     }
     function handProp(k) {
       for (var n = 0; n < Pr.length; n++) {
@@ -582,10 +587,17 @@
         if (kind === 'db1') dumbbell([m[0] + d[0] * 2, m[1] + d[1] * 2, ww], pq[1], d);
         else if (kind === 'kb') {
           var kd = pq[1] === 'a' ? d : [0, -1], hp = P([m[0] + kd[0] * 2.8, m[1] + kd[1] * 2.8, ww]), bp = P([m[0] + kd[0] * 9.6, m[1] + kd[1] * 9.6, ww]);
-          ellS(hp, 3.6, 3.6, 2.3, C.steelD); disc(bp, 6.8, C.iron); ellS(bp, 6.8, 6.8, 0.8, C.rim); disc([bp[0] - 2, bp[1] + 2.3], 1.5, C.iron2);
+          // poignée tenue à deux mains, reliée à la cloche
+          var w0 = P(J.W[0]), w1 = P(J.W[1]), top = P([m[0] + kd[0] * 5.2, m[1] + kd[1] * 5.2, ww]);
+          line(w0, w1, 2.6, C.steelD);
+          line(w0, top, 2.2, C.steelD); line(w1, top, 2.2, C.steelD);
+          ball(bp, 6.9, C.iron, 1.2);
+          disc([bp[0] - 2.2, bp[1] + 2.4], 1.3, 'rgba(255,255,255,0.18)');
         } else {
           var cp = P([m[0] + d[0] * 6.5, m[1] + d[1] * 6.5, ww]);
-          disc(cp, 7.9, C.iron); ellS(cp, 7.9, 7.9, 0.8, C.rim); ellS(cp, 5, 5, 1.1, C.iron2);
+          ball(cp, 7.9, '#24343d', 1.1);
+          ellS(cp, 7.9, 3.2, 0.9, 'rgba(255,255,255,0.14)');
+          line([cp[0], cp[1] - 7.6], [cp[0], cp[1] + 7.6], 0.8, 'rgba(255,255,255,0.12)');
         }
       }
     }

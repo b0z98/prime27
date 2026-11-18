@@ -48,8 +48,8 @@
         items: [['situp', 20], ['leg_raise', 20], ['superman', 20], ['shoulder_taps', 20], ['v_up', 20], ['climbers', 40], ['bridge', 20], ['plank', '1 min']]
       },
       {
-        id: 'hyrox', name: 'Hyrox express', tag: 'SkiErg, rameur, burpees', dur: '9 à 11 min',
-        items: [['ski', '1 000 m'], ['row', '1 000 m'], ['burpee', 20]]
+        id: 'hyrox', name: 'Hyrox express', tag: 'SkiErg, rameur, burpees, wall balls, fermier', dur: '12 à 15 min',
+        items: [['ski', '1 000 m'], ['row', '1 000 m'], ['burpee', 20], ['wall_ball', 30], ['farmer_carry', '1 min']]
       },
       {
         id: 'pyramide', name: 'Pyramide', tag: '5, 4, 3, 2, 1 sans pause', dur: '6 à 9 min', rounds: [5, 4, 3, 2, 1],

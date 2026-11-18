@@ -32,7 +32,7 @@
     var d = document.createElement('div'); d.className = 'c';
     d.innerHTML = '<b>' + parts[0] + (t != null ? ' @' + t : '') + '</b>';
     var c = document.createElement('canvas'); d.appendChild(c); g.appendChild(d);
-    var o = { shirt: '#ff6250', look: look, bg: 'full', focus: q.get('focus') || null, heat: +(q.get('heat') || 0) };
+    var o = { shirt: '#ff6250', look: look, bg: 'full', focus: q.get('focus') || null, heat: +(q.get('heat') || 0), effort: +(q.get('effort') || 0) };
     if (q.get('anim') || t == null) PrimeFig.mount(c, ex, o);
     else PrimeFig.mount(c, Object.assign({}, ex, { th: t }), Object.assign(o, { still: true }));
   });

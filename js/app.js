@@ -44,6 +44,7 @@
     check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
     google: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.5 5.5 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6H1.4a12 12 0 0 0 0 10.8l4-3z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1c.9-2.8 3.5-4.9 6.6-4.9z"/></svg>',
     chev: svg('<path d="M9 5l7 7-7 7"/>'),
+    swap: svg('<path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/>'),
     locker: svg('<path d="M10 6.5a2 2 0 1 1 2.6 1.9c-.4.1-.6.5-.6.9V10"/><path d="M12 10.5L3.6 16.6a1 1 0 0 0 .6 1.9h15.6a1 1 0 0 0 .6-1.9z"/>'),
     lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
     share: svg('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/>')
@@ -116,7 +117,7 @@
   function itemOf(it) { return typeof it === 'string' ? { ex: it } : it; }
   function timeline(s) {
     if (s._tl) return s._tl;
-    var segs = [], W = PROG.warmups[s.warmup || 'A'], S = PROG.stretch;
+    var segs = [], W = safeList(PROG.warmups[s.warmup || 'A'], WPOOL), S = safeList(PROG.stretch, SPOOL);
     W.forEach(function (w, i) { segs.push({ t: 'warm', ex: w[0], dur: w[1], n: i + 1, of: W.length, grp: 0 }); });
     segs.push({ t: 'prep', dur: s.prep || 30, bi: 0, grp: 1 });
     // blocs adaptés au matériel disponible
@@ -126,8 +127,8 @@
       for (k in b) c[k] = b[k];
       c.items = its;
       if (its.swapped) {
-        c.sub = 'Adapté à ton matériel';
-        c.note = its.swapped + (its.swapped > 1 ? ' mouvements remplacés' : ' mouvement remplacé') + ' selon le matériel disponible.';
+        c.sub = 'Adapté pour toi';
+        c.note = its.swapped + (its.swapped > 1 ? ' mouvements remplacés' : ' mouvement remplacé') + ' selon ton matériel ou tes douleurs.';
       }
       return c;
     });
@@ -159,7 +160,7 @@
     }
     var moves = {};
     segs.forEach(function (x) { if (x.t === 'work') moves[x.ex] = 1; });
-    s._tl = { blocks: blocks, segs: segs, groups: groups, total: t, stretch: groups[groups.length - 1].dur, main: t - groups[groups.length - 1].dur, moves: Object.keys(moves) };
+    s._tl = { warm: W, str: S, blocks: blocks, segs: segs, groups: groups, total: t, stretch: groups[groups.length - 1].dur, main: t - groups[groups.length - 1].dur, moves: Object.keys(moves) };
     return s._tl;
   }
   function blockDur(s, bi) {
@@ -373,7 +374,9 @@
         '<p class="goal"><b>' + nDone + ' / ' + m.sessions.length + '</b> ' + goal + '</p>' +
         weekTiles(entries) +
       '</section>' + live + backupNudge() + installCard() +
-      '<section class="list"><div class="hrow"><h2 class="h2">Séances de la semaine</h2><button class="pill tap" data-act="equip">' + esc(equipLabel()) + I.chev + '</button></div>' +
+      '<section class="list"><h2 class="h2">Séances de la semaine</h2>' +
+      '<div class="pills"><button class="pill tap" data-act="equip">' + esc(equipLabel()) + I.chev + '</button>' +
+      '<button class="pill tap' + (painList().length ? ' warn' : '') + '" data-act="pain">' + esc(painShort()) + I.chev + '</button></div>' +
       m.sessions.map(function (s) {
         var tl = timeline(s), h = doneBy[s.id], isNext = nextS && nextS.id === s.id && !trainedToday;
         var st = h ? '<span class="pill ok">' + I.check + 'Fait ' + DAYS[(parseYmd(h.date).getDay() + 6) % 7] + '</span>' :
@@ -412,7 +415,7 @@
   }
   function viewSession(s) {
     if (!s) return viewHome();
-    var tl = timeline(s), W = PROG.warmups[s.warmup || 'A'], S = PROG.stretch;
+    var tl = timeline(s), W = tl.warm, S = tl.str;
     var blocks = tl.blocks.map(function (b, bi) {
       var items = b.items, seen = {};
       var rows = items.filter(function (it) { var k = it.ex; if (seen[k]) return false; seen[k] = 1; return true; }).map(function (it) {
@@ -435,9 +438,10 @@
       '</dl>' +
       '<section class="plan">' + frise(s, true) + '<div class="scale"><span style="left:0">0</span><span style="left:' + (300 / tl.total * 100).toFixed(1) + '%">5</span>' +
         '<span style="right:0">' + Math.round(tl.main / 60) + ' + ' + Math.round(tl.stretch / 60) + ' min</span></div></section>' +
+      teamSection() +
       '<section><h2 class="h2">Matériel à prévoir</h2><ul class="chips">' + sessionEquip(tl).map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul></section>' +
       '<section class="blocks"><h2 class="h2">Déroulé</h2>' +
-        '<article class="blk"><header><div><h3 class="disp">Échauffement</h3><p>Sans matériel' + (s.warmup === 'B' ? ', rameur en douceur' : '') + '</p></div><div class="blk-t"><b>5:00</b><span>enchaîné</span></div></header><ul class="rows">' +
+        '<article class="blk"><header><div><h3 class="disp">Échauffement</h3><p>' + (W[0][0] === 'row' ? 'Rameur en douceur, puis sans matériel' : 'Sans matériel') + '</p></div><div class="blk-t"><b>5:00</b><span>enchaîné</span></div></header><ul class="rows">' +
           W.map(function (w) { return rowHtml(w[0], s.type, secLabel(w[1])); }).join('') + '</ul></article>' +
         blocks +
         '<article class="blk"><header><div><h3 class="disp">Étirements</h3><p>Retour au calme</p></div><div class="blk-t"><b>' + fmt(tl.stretch) + '</b><span>en plus des 45 min</span></div></header><ul class="rows">' +
@@ -459,7 +463,8 @@
       '<ul class="xgrid">' + ids.map(function (id) {
         var ex = EX[id];
         return '<li><button class="xcard" data-ex="' + id + '" data-c="neutral"><span class="xfig"><canvas class="fig" data-ex="' + id + '" data-c="neutral" data-slow></canvas></span>' +
-          '<b>' + esc(ex.n) + '</b><small>' + esc(ex.eq.length ? ex.eq.join(' · ') : 'Sans matériel') + '</small></button></li>';
+          '<b>' + esc(ex.n) + '</b>' + (hurts(id) ? '<small class="warn">À ménager : ' + esc(ex.z.filter(function (z) { return db.settings.pain[z]; }).map(zoneName).join(', ')) + '</small>' :
+          '<small>' + esc(ex.eq.length ? ex.eq.join(' · ') : 'Sans matériel') + '</small>') + '</button></li>';
       }).join('') + '</ul></div>';
   }
 
@@ -548,6 +553,8 @@
       profileSection() +
       '<section><h2 class="h2">Matériel</h2><p class="hint">En déplacement ou salle incomplète : indique ce que tu as, les séances s’adaptent.</p>' +
         '<button class="btn sm" data-act="equip">Matériel disponible : ' + esc(equipLabel()) + '</button></section>' +
+      '<section><h2 class="h2">Douleurs</h2><p class="hint">Indique une zone sensible : les mouvements qui la sollicitent sont remplacés.</p>' +
+        '<button class="btn sm" data-act="pain">' + esc(painShort()) + '</button></section>' +
       '<section><h2 class="h2">Programme</h2>' +
         '<label class="field"><span>Début du cycle (lundi de la semaine 1)</span><input type="date" id="set-start" value="' + esc(db.settings.start) + '"></label>' +
         '<p class="hint">Les quatre semaines du mois se calent sur cette date. Change-la pour recommencer un cycle.</p></section>' +
@@ -567,6 +574,7 @@
       '<h2 class="disp sheet-n">' + esc(ex.n) + '</h2>' +
       '<p class="sheet-m">' + esc(ex.m) + ' · ' + esc(ex.eq.length ? ex.eq.join(', ') : 'sans matériel') + '</p>' +
       '<ol class="cues">' + ex.cues.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ol>' +
+      (ex.z && ex.z.length ? '<p class="sheet-m">Sollicite : ' + esc(ex.z.map(zoneName).join(', ')) + (hurts(exId) ? ' · à ménager selon tes douleurs' : '') + '</p>' : '') +
       (ex.sides ? '<p class="note">Mouvement unilatéral : change de côté à mi-série, un double bip te le signale.</p>' : '') +
       (ex.alt ? '<p class="note"><b>Si le matériel est pris :</b> ' + esc(ex.alt) + '.</p>' : '') +
       (ex.load ? '<label class="field inline"><span>Ma charge' + (db.weights[exId] ? '' : ' (proposée)') + '</span><span class="unit"><input type="number" inputmode="decimal" min="0" step="0.5" id="sheet-w" value="' + (w || '') + '" placeholder="—"><em>kg</em></span></label>' : '') +
@@ -595,8 +603,8 @@
   var P = null, timer = 0;
 
   function startSession(s, from) {
-    var tl = timeline(s);
-    P = { s: s, tl: tl, i: from ? from.i : 0, el: from ? from.el : 0, active: from ? (from.active || 0) : 0, run: true, last: Date.now(), done: false, fired: {}, saveAt: 0, fig: null, nfig: null, cueI: 0, heat: 0 };
+    var tl = cloneTl(timeline(s));
+    P = { swap: {}, team: teamSize(), s: s, tl: tl, i: from ? from.i : 0, el: from ? from.el : 0, active: from ? (from.active || 0) : 0, run: true, last: Date.now(), done: false, fired: {}, saveAt: 0, fig: null, nfig: null, cueI: 0, heat: 0 };
     overlay.innerHTML = '<div class="player s-' + s.type + '" id="player">' +
       '<canvas class="p-fire" id="p-fire" aria-hidden="true"></canvas>' +
       '<header class="p-top"><button class="ic" data-p="quit" aria-label="Quitter la séance">' + I.close + '</button>' +
@@ -604,7 +612,9 @@
         '<div class="p-rem"><span>Reste</span><b id="p-total"></b></div></header>' +
       '<div class="p-prog" id="p-prog">' + tl.groups.map(function (g) { return '<i class="fr-' + g.kind + '" style="flex:' + g.dur + ' 1 0"><b></b></i>'; }).join('') + '</div>' +
       '<div class="p-clock" id="p-clock"><div class="p-digits disp" id="p-digits" aria-live="off"></div><div class="p-side"><b id="p-round"></b><span id="p-item"></span></div><div class="p-bar"><i id="p-bar"></i></div></div>' +
-      '<div class="p-info"><p class="p-phase" id="p-phase"></p><h2 class="disp" id="p-name"></h2><p class="p-cue" id="p-cue"></p></div>' +
+      '<div class="p-info"><div class="p-row"><p class="p-phase" id="p-phase"></p><button class="swapbtn" data-p="swap" id="p-swap" aria-label="Changer d’exercice pour ce bloc">' + I.swap + 'Changer</button></div>' +
+        '<h2 class="disp" id="p-name"></h2><p class="p-cue" id="p-cue"></p></div>' +
+      '<div class="p-team" id="p-team" hidden></div>' +
       '<button class="p-stage" data-p="info" aria-label="Voir les points clés de l’exercice"><canvas id="p-fig"></canvas><span class="p-badge" id="p-badge"></span><span class="p-load" id="p-load"></span></button>' +      '<div class="p-next" id="p-next"><span class="thumb"><canvas id="p-nfig"></canvas></span><span class="row-t"><small id="p-nlabel"></small><b id="p-nname"></b></span></div>' +
       '<footer class="p-ctl">' +
         '<button class="ic" data-p="sound" id="p-sound" aria-label="Couper ou rétablir le son"></button>' +
@@ -648,6 +658,10 @@
     }
     if (g.t === 'work' && g.tag) phase = 'Effort max';
     if (g.t === 'work' && g.fin) phase = db.settings.hard ? 'Zone rouge · fin de bloc' : (g.tag ? 'Effort max' : 'Dernier effort') + ' · fin de bloc';
+    if (g.t === 'work' && P.team > 1) {
+      var tp0 = teamPlan(g);
+      if (tp0 && tp0[0].rest) { var act0 = tp0.filter(function (x) { return !x.rest; })[0]; phase = 'À ' + (act0 ? act0.name : 'ton partenaire') + ' · récupère'; }
+    }
     if (g.t === 'rest' || g.t === 'trans' || g.t === 'prep') badge = 'À suivre';
     $('#p-sec').textContent = sec;
     $('#p-sub').textContent = sub;
@@ -655,6 +669,8 @@
     $('#p-name').textContent = name;
     $('#p-badge').textContent = badge;
     $('#p-badge').hidden = !badge;
+    $('#p-swap').hidden = !(canSwap(g) && swapOptions(g).length > 1);
+    paintTeam(g);
     paintLoad();
     $('#p-round').textContent = g.t === 'work' && g.rounds > 1 ? 'Tour ' + g.round + '/' + g.rounds : (g.t === 'warm' || g.t === 'stretch' ? g.n + '/' + g.of : '');
     $('#p-item').textContent = g.t === 'work' && g.of > 1 ? 'Exo ' + g.n + '/' + g.of : '';
@@ -686,7 +702,9 @@
       if (g.t === 'work') {
         SND.go();
         if (g.fin) SND.hell();
-        if (g.tag) say(ex.n + pickOne(coach().max));
+        var tp = P.team > 1 ? teamPlan(g) : null;
+        if (tp) say((g.fin ? pickOne(coach().hell) + ' ' : '') + tp.map(function (x) { return x.name + ', ' + (x.rest ? 'récupère' : EX[x.ex].n); }).join('. ') + '.');
+        else if (g.tag) say(ex.n + pickOne(coach().max));
         else if (g.fin) coachSay('hell');
         else if (g.rounds > 1 && g.round === g.rounds && g.n === 1) coachSay('last');
         else if (db.settings.hard && Math.random() < 0.4) coachSay('go');
@@ -833,7 +851,9 @@
     var s = P.s, tl = P.tl, pos = tl.segs[P.i].at + P.el;
     var isPartial = partial && pos < tl.main - 1;
     if (!partial) { SND.end(); buzz([200, 80, 200, 80, 400]); coachSay('end'); }
-    var loads = tl.moves.filter(function (id) { return EX[id].load; });
+    var used = {};
+    tl.segs.forEach(function (x) { if (x.t === 'work') used[x.ex] = 1; });
+    var loads = Object.keys(used).filter(function (id) { return EX[id].load; });
     var rpe0 = s.rpe || 7, sg = SUG[s.type] || SUG.mixte, lv = lastVitals(s.id), frac = Math.min(1, pos / tl.main);
     overlay.innerHTML = '<div class="player finish s-' + s.type + '"><div class="fin">' +
       '<p class="eyebrow acc">' + (isPartial ? 'Séance écourtée' : 'Séance terminée') + '</p>' +
@@ -870,7 +890,7 @@
     });
     var now = new Date(), ha = parseInt($('#fin-hr-avg').value, 10) || 0, hm = parseInt($('#fin-hr-max').value, 10) || 0;
     pendingRecord = beatsRecord(s, scores);
-    db.history.push({ id: now.getTime(), sid: s.id, date: ymd(now), ts: now.getTime(), dur: Math.round(P.active), partial: !!P.partial,
+    db.history.push({ team: P.team > 1 ? P.team : 0, id: now.getTime(), sid: s.id, date: ymd(now), ts: now.getTime(), dur: Math.round(P.active), partial: !!P.partial,
       rpe: rpeBtn ? +rpeBtn.getAttribute('data-rpe') : 0, scores: scores, note: ($('#fin-note').value || '').trim().slice(0, 400),
       hr: (ha || hm) ? { avg: ha, max: hm } : null, kcal: parseInt($('#fin-kcal').value, 10) || 0 });
     route = { name: 'home', id: null };
@@ -933,14 +953,14 @@
 
   // ------------------------------------------------------------------ matériel disponible
   var EQUIP = ['Rameur', 'SkiErg', 'Vélo', 'Barre', 'Haltères', 'Kettlebell', 'Banc', 'Box', 'Ballon'];
-  var POOL = ['jump_squat', 'climbers', 'high_knees', 'jacks', 'v_up', 'superman', 'air_squat', 'shoulder_taps', 'leg_raise', 'situp', 'plank', 'bridge', 'pushup', 'lunge_fwd', 'burpee'];
+  var POOL = ['jump_squat', 'climbers', 'high_knees', 'jacks', 'v_up', 'superman', 'air_squat', 'shoulder_taps', 'leg_raise', 'situp', 'plank', 'bridge', 'pushup', 'lunge_fwd', 'burpee', 'lunge_jump', 'dead_bug', 'hollow_rock', 'side_plank'];
   function have(e) {
     if (e === 'Tapis') return true;
     if (e === 'Slam ball' || e === 'Med ball') e = 'Ballon';
     var q = db.settings.equip;
     return !q || q[e] !== false;
   }
-  function canDo(id) { return EX[id].eq.every(have); }
+  function canDo(id) { return EX[id].eq.every(have) && !hurts(id); }
   // g : mouvements déjà placés ailleurs dans la séance, pour varier les remplaçants
   function adaptItems(b, g) {
     var used = {}, map = {}, swapped = 0;
@@ -953,7 +973,7 @@
         if (!map[id]) {
           alts = (EX[id].alts || []).concat(POOL).filter(function (a) { return canDo(a) && !used[a]; });
           for (i = 0; i < alts.length; i++) if (!g[alts[i]]) break;
-          map[id] = alts[i < alts.length ? i : 0] || 'jacks';
+          map[id] = alts[i < alts.length ? i : 0] || SAFE.filter(canDo)[0] || id;
           used[map[id]] = 1;
           swapped++;
         }
@@ -1464,7 +1484,11 @@
     if (!pl || !P) return;
     var h = P.heat || 0;
     pl.style.setProperty('--heat', h.toFixed(3));
-    if (P.fig) P.fig.o.heat = h;
+    if (P.fig) {
+      P.fig.o.heat = h;
+      var gw = P.tl.segs[P.i];
+      P.fig.o.effort = gw && gw.t === 'work' ? Math.min(1, 0.4 + h * 0.6) : 0;
+    }
     if (h > 0.01) fxStart();
   }
   function stamp(bi, final) {
@@ -1753,6 +1777,130 @@
       '<button class="btn sm ghost" data-act="backupfile">Sauvegarder un fichier</button></div></section>';
   }
 
+  // ------------------------------------------------------------------ douleurs : zones à ménager
+  var ZONES = window.PRIME_ZONES || [];
+  var SAFE = ['dead_bug', 'bridge', 'plank', 'superman', 'bike', 'air_squat', 'jacks'];
+  var WPOOL = ['jacks', 'arm_circles', 'air_squat', 'lunge_twist', 'inchworm', 'high_knees', 'dead_bug', 'bridge', 'superman', 'bike'];
+  var SPOOL = ['st_fold', 'st_quad', 'st_hipflexor', 'st_child', 'st_cobra', 'st_shoulder', 'dead_bug', 'bridge'];
+  function hurts(id) {
+    var p = db.settings.pain;
+    return !!p && (EX[id].z || []).some(function (z) { return p[z]; });
+  }
+  function zoneName(z) { for (var i = 0; i < ZONES.length; i++) if (ZONES[i].id === z) return ZONES[i].n.toLowerCase(); return z; }
+  function painList() { var p = db.settings.pain || {}; return ZONES.filter(function (z) { return p[z.id]; }); }
+  function painShort() {
+    var l = painList();
+    return !l.length ? 'Aucune douleur' : l.length === 1 ? 'Ménage : ' + l[0].n.toLowerCase() : 'Ménage : ' + l.length + ' zones';
+  }
+  // échauffement et étirements : remplace ce qui est impossible (matériel ou douleur)
+  function safeList(list, pool) {
+    var used = {};
+    list.forEach(function (w) { if (canDo(w[0])) used[w[0]] = 1; });
+    return list.map(function (w) {
+      if (canDo(w[0])) return w;
+      var ok = pool.filter(function (id) { return EX[id] && canDo(id); });
+      var alt = ok.filter(function (id) { return !used[id]; })[0] || ok[0] || w[0];
+      used[alt] = 1;
+      return [alt, w[1]];
+    });
+  }
+  function openPain() {
+    var p = db.settings.pain || {};
+    sheet.innerHTML = '<div class="sheet-bg" data-sheet="close"></div><div class="sheet-p" role="dialog" aria-modal="true" aria-label="Douleurs">' +
+      '<button class="ic sheet-x alt" data-sheet="close" aria-label="Fermer">' + I.close + '</button>' +
+      '<h2 class="disp sheet-n">Où as-tu mal ?</h2>' +
+      '<p class="hint">Les mouvements qui sollicitent ces zones sont remplacés par d’autres. La séance garde sa durée.</p>' +
+      ZONES.map(function (z, i) {
+        return '<label class="sw"><span><b>' + z.n + '</b></span><input type="checkbox" id="pain-' + i + '" data-zone="' + z.id + '"' + (p[z.id] ? ' checked' : '') + '><i></i></label>';
+      }).join('') +
+      '<button class="btn sm ghost" data-act="nopain">Tout va bien</button>' +
+      '<p class="note">Une douleur vive, qui dure ou qui revient, mérite l’avis d’un médecin ou d’un kiné avant de reprendre.</p></div>';
+    sheet.classList.add('on');
+  }
+  function setPain(z, on) {
+    var p = {}, k, cur = db.settings.pain || {};
+    for (k in cur) p[k] = cur[k];
+    if (on) p[z] = true; else delete p[z];
+    db.settings.pain = Object.keys(p).length ? p : null;
+    save(); resetTimelines(); render();
+  }
+
+  // ------------------------------------------------------------------ échange d'exercice en un geste
+  function cloneTl(tl) {
+    return {
+      blocks: tl.blocks, groups: tl.groups, total: tl.total, stretch: tl.stretch, main: tl.main, moves: tl.moves, warm: tl.warm, str: tl.str,
+      segs: tl.segs.map(function (g) { var c = {}, k; for (k in g) c[k] = g[k]; return c; })
+    };
+  }
+  function swapOrig(bi, cur) { var map = P.swap[bi] || {}, k; for (k in map) if (map[k] === cur) return k; return cur; }
+  function swapOptions(g) {
+    var cur = g.ex, orig = swapOrig(g.bi, cur), inBlock = {}, seen = {}, out;
+    P.tl.segs.forEach(function (x) { if (x.t === 'work' && x.bi === g.bi) inBlock[x.ex] = 1; });
+    out = [orig].concat(EX[orig].alts || [], POOL, SAFE).filter(function (id) {
+      if (!EX[id] || seen[id]) return false;
+      seen[id] = 1;
+      return id === cur || (canDo(id) && (id === orig || !inBlock[id]));
+    }).slice(0, 5);
+    if (out.indexOf(cur) < 0) out.unshift(cur);
+    return out;
+  }
+  function canSwap(g) { return g.bi != null && !!g.ex && g.t !== 'warm' && g.t !== 'stretch'; }
+  function swapNow() {
+    var g = P.tl.segs[P.i];
+    if (!canSwap(g)) return;
+    var opts = swapOptions(g), cur = g.ex, next = opts[(opts.indexOf(cur) + 1) % opts.length], bi = g.bi, orig;
+    if (!next || next === cur) { toast('Pas d’autre mouvement possible avec ton matériel'); return; }
+    orig = swapOrig(bi, cur);
+    P.tl.segs.forEach(function (x) { if (x.bi === bi && x.ex === cur && x.t !== 'warm' && x.t !== 'stretch') x.ex = next; });
+    (P.swap[bi] = P.swap[bi] || {})[orig] = next;
+    P.cueI = 0;
+    paintSeg(false);
+    buzz(60);
+    say(EX[next].n + '.');
+    toast(EX[cur].n + ' → ' + EX[next].n + (opts.length > 2 ? ' · touche encore pour une autre option' : ''));
+  }
+
+  // ------------------------------------------------------------------ à plusieurs : chacun démarre sur un exercice différent
+  function teamSize() { return Math.max(1, Math.min(3, +db.settings.team || 1)); }
+  function mateNames() {
+    var m = db.settings.mates || [];
+    return ['Toi', (m[0] || '').trim() || 'Partenaire 2', (m[1] || '').trim() || 'Partenaire 3'];
+  }
+  function teamSection() {
+    var n = teamSize(), m = db.settings.mates || [], i, h = '';
+    for (i = 1; i < n; i++) {
+      h += '<label class="field inline"><span>Partenaire ' + (i + 1) + '</span><input type="text" id="mate-' + i + '" data-mate="' + (i - 1) + '" maxlength="16" autocomplete="off" placeholder="Prénom" value="' + esc(m[i - 1] || '') + '"></label>';
+    }
+    return '<section><h2 class="h2">À plusieurs</h2>' +
+      '<div class="seg" role="radiogroup" aria-label="Nombre de personnes">' + [[1, 'Solo'], [2, 'Duo'], [3, 'Trio']].map(function (o) {
+        return '<button role="radio" aria-checked="' + (n === o[0] ? 'true' : 'false') + '" data-team="' + o[0] + '">' + o[1] + '</button>';
+      }).join('') + '</div>' + h +
+      '<p class="hint">' + (n > 1 ? 'Chacun démarre sur un exercice différent du groupe et tourne au changement d’exercice. Dans les blocs à un seul exercice, vous alternez les tours. L’écran indique à chacun ce qu’il fait.' :
+        'À deux ou trois, chacun démarre sur un exercice différent du groupe pour ne pas se gêner sur le matériel.') + '</p></section>';
+  }
+  // exercice de chacun pour une étape d'effort (ou la prochaine, pendant un repos)
+  function teamPlan(g) {
+    var n = P.team, names = mateNames(), w = g.t === 'work' ? g : (g.nx != null && g.nx >= 0 ? P.tl.segs[g.nx] : null);
+    if (n < 2 || !w || w.t !== 'work') return null;
+    var list = P.tl.segs.filter(function (x) { return x.t === 'work' && x.bi === w.bi && x.round === w.round; })
+      .sort(function (a, b) { return a.n - b.n; }).map(function (x) { return x.ex; });
+    var N = list.length, out = [], p, k, slots = Math.max(N, n), filler = canDo('plank') ? 'plank' : 'dead_bug';
+    for (p = 0; p < n; p++) {
+      if (N === 1) out.push({ name: names[p], ex: list[0], rest: (w.round - 1) % n !== p, me: p === 0 });
+      else { k = (w.n - 1 + p) % slots; out.push({ name: names[p], ex: k < N ? list[k] : filler, rest: false, me: p === 0 }); }
+    }
+    return out;
+  }
+  function paintTeam(g) {
+    var el = document.getElementById('p-team'), plan = teamPlan(g);
+    if (!el) return;
+    el.hidden = !plan;
+    if (!plan) return;
+    el.innerHTML = plan.map(function (x) {
+      return '<span class="tm' + (x.me ? ' me' : '') + (x.rest ? ' off' : '') + '"><b>' + esc(x.name) + '</b>' + esc(x.rest ? 'Récupère' : EX[x.ex].n) + '</span>';
+    }).join('');
+  }
+
   // ------------------------------------------------------------------ interactions
   document.addEventListener('click', function (e) {
     var t = e.target.closest('button,[data-sheet]');
@@ -1775,6 +1923,7 @@
     if (t.hasAttribute('data-mi')) { if (M) toggleMini(+t.getAttribute('data-mi')); return; }
     if (t.hasAttribute('data-mini')) { startMini(t.getAttribute('data-mini')); return; }
     if (t.hasAttribute('data-preset')) { presetEquip(t.getAttribute('data-preset')); return; }
+    if (t.hasAttribute('data-team')) { db.settings.team = +t.getAttribute('data-team'); save(); var ty = window.scrollY; render(); window.scrollTo(0, ty); return; }
     if (t.hasAttribute('data-p')) { playerAct(t.getAttribute('data-p')); return; }
     if (t.hasAttribute('data-rpe')) {
       $$('#fin-rpe button').forEach(function (b) { b.setAttribute('aria-checked', b === t ? 'true' : 'false'); });
@@ -1803,6 +1952,12 @@
     if (t.id === 'restore-file') { restoreFile(t.files && t.files[0]); t.value = ''; }
     if (t.hasAttribute && t.hasAttribute('data-prof')) { var kv = parseFloat(t.value); if (kv > 0) { db.settings.kg = Math.round(kv); save(); } }
     if (t.id === 'set-voice') { db.settings.voiceName = t.value; save(); say('Voici la voix de ton coach. Prêt ? C’est parti !'); }
+    if (t.hasAttribute && t.hasAttribute('data-zone')) setPain(t.getAttribute('data-zone'), t.checked);
+    if (t.hasAttribute && t.hasAttribute('data-mate')) {
+      var ms = (db.settings.mates || []).slice();
+      ms[+t.getAttribute('data-mate')] = t.value.trim().slice(0, 16);
+      db.settings.mates = ms; save();
+    }
     if (t.hasAttribute && t.hasAttribute('data-eq')) {
       var q = {};
       EQUIP.forEach(function (e) { q[e] = have(e); });
@@ -1830,6 +1985,7 @@
     else if (a === 'next') jump(1);
     else if (a === 'prev') jump(-1);
     else if (a === 'quit') askQuit();
+    else if (a === 'swap') swapNow();
     else if (a === 'info') { var g = P.tl.segs[P.i]; if (g.ex) openSheet(g.ex, P.s.type); }
     else if (a === 'sound') openSound();
     else if (a === 'save') saveSession(false);
@@ -1838,6 +1994,8 @@
   }
   function act(a) {
     if (a === 'equip') openEquip();
+    else if (a === 'pain') openPain();
+    else if (a === 'nopain') { db.settings.pain = null; save(); resetTimelines(); render(); openPain(); }
     else if (a === 'welcome') { db.settings.onboarded = true; save(); closeSheet(); render(); }
     else if (a === 'share') shareApp();
     else if (a === 'install') installApp();

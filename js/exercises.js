@@ -661,37 +661,190 @@
     t: [0.8, 0.9]
   };
 
-  // Réglages 3D (hz : demi-écart des mains, fz : demi-écart des pieds) et charges conseillées.
+  // ================= AJOUTS : dix mouvements de plus =================
+  EX.wall_ball = {
+    n: 'Wall ball', c: 'ball', eq: ['Med ball'], m: 'Jambes, épaules, cardio', load: 1,
+    cues: ['Ballon contre la poitrine, squat complet', 'Remonte en explosant et lance le ballon haut contre le mur', 'Rattrape-le et enchaîne directement le squat suivant'],
+    alt: 'Thruster avec une kettlebell',
+    p: [['ball']],
+    k: [
+      { h: [102, 36], l: 26, a: T(10, -8), f: FT },
+      { h: [120, 80], l: -2, d: -12, a: [172, 8], f: [[117, 8, -14], [123, 8, -14]] },
+      { h: [120, 77], l: 0, a: T(10, -8), f: FT }
+    ],
+    t: [0.5, 0.45, 0.55], e: 'oss', th: 0.5
+  };
+  EX.db_snatch = {
+    n: 'Arraché haltère', c: 'halteres', eq: ['Haltères'], m: 'Corps entier, puissance', load: 1, sides: 1,
+    cues: ['Haltère entre les pieds, dos plat', 'Pousse dans le sol, haltère près du corps', 'Bras verrouillé au-dessus de la tête, change de bras à mi-série'],
+    alt: 'Swing kettlebell',
+    p: [['db', 'h', 0]],
+    k: [
+      { h: [100, 60], l: 62, d: -18, a: [A(127, 14), [8, 10]], f: FT },
+      { h: [120, 78], l: -2, a: [A(129, 128), [10, 10]], f: [[117, 7, -10], [123, 7, -10]] },
+      { h: [119, 76], l: 0, d: -4, a: [[178, 2], [12, 10]], f: FT },
+      { h: [119, 77], l: 0, d: -4, a: [[178, 2], [12, 10]], f: FT }
+    ],
+    t: [0.35, 0.3, 0.55, 0.6], e: 'ooss', th: 0.7
+  };
+  EX.renegade_row = {
+    n: 'Rowing en planche', c: 'halteres', eq: ['Haltères', 'Tapis'], m: 'Dos, gainage, épaules', load: 1,
+    cues: ['Planche haute, mains sur les haltères, pieds écartés', 'Tire un haltère vers la hanche', 'Le bassin reste face au sol, alterne les bras'],
+    alt: 'Rowing unilatéral appuyé sur un banc',
+    p: [['mat', 26, 176], ['db', 'h']],
+    k: [
+      { h: [109, 37], l: 72, d: -22, a: [A(150, 8), A(154, 8)], f: PLK },
+      { h: [109, 37], l: 72, d: -22, a: [A(130, 27), A(154, 8)], f: PLK },
+      { h: [109, 37], l: 72, d: -22, a: [A(150, 8), A(154, 8)], f: PLK },
+      { h: [109, 37], l: 72, d: -22, a: [A(150, 8), A(134, 27)], f: PLK }
+    ],
+    t: [0.45, 0.55, 0.45, 0.55]
+  };
+  EX.farmer_carry = {
+    n: 'Marche du fermier', c: 'halteres', eq: ['Haltères'], m: 'Avant-bras, trapèzes, gainage', load: 1,
+    cues: ['Haltères lourds le long du corps', 'Marche à petits pas rapides, buste droit', 'Épaules basses et serrées, abdos gainés'],
+    alt: 'Planche, ou montées de genoux',
+    p: [['db', 'h']],
+    k: [
+      { h: [120, 75], l: 2, a: [[2, 4], [2, 4]], f: [[134, 6, 12], [107, 8, -22]] },
+      { h: [120, 77.5], l: 2, a: [[2, 4], [2, 4]], f: [[121, 5, 0], [117, 15, -10]] },
+      { h: [120, 75], l: 2, a: [[2, 4], [2, 4]], f: [[107, 8, -22], [134, 6, 12]] },
+      { h: [120, 77.5], l: 2, a: [[2, 4], [2, 4]], f: [[117, 15, -10], [121, 5, 0]] }
+    ],
+    t: [0.3, 0.3, 0.3, 0.3], lin: 1
+  };
+  EX.dead_bug = {
+    n: 'Dead bug', c: 'corps', eq: ['Tapis'], m: 'Gainage profond, abdominaux',
+    cues: ['Sur le dos, bras tendus vers le plafond, genoux à 90°', 'Allonge un bras et la jambe opposée sans toucher le sol', 'Bas du dos plaqué au sol, alterne lentement'],
+    alt: 'Une seule jambe à la fois',
+    p: [['mat', 24, 206]],
+    k: [
+      { h: [120, 10.5], l: -90, a: [A(79, 55), A(79, 55)], f: [[156, 46, 90], [156, 46, 90]] },
+      { h: [120, 10.5], l: -90, a: [A(33, 14), A(79, 55)], f: [[156, 46, 90], [190, 13, 8]] },
+      { h: [120, 10.5], l: -90, a: [A(79, 55), A(79, 55)], f: [[156, 46, 90], [156, 46, 90]] },
+      { h: [120, 10.5], l: -90, a: [A(79, 55), A(33, 14)], f: [[190, 13, 8], [156, 46, 90]] }
+    ],
+    t: [0.9, 0.9, 0.9, 0.9]
+  };
+  EX.side_plank = {
+    n: 'Planche latérale', c: 'corps', eq: ['Tapis'], m: 'Obliques, gainage, épaules', sides: 1,
+    cues: ['Coude sous l’épaule, pieds empilés', 'Corps aligné des chevilles à la tête', 'Monte le bassin, change de côté à mi-série'],
+    alt: 'Sur le genou du bas',
+    v: 'f',
+    k: [
+      { h: [100, 28], l: 73, a: [A(166, 3), [180, 0]], f: [[29, 4, 0], [31, 10, 0]] },
+      { h: [100, 31], l: 71, a: [A(166, 3), [172, 4]], f: [[29, 4, 0], [31, 10, 0]] }
+    ],
+    t: [1.5, 1.5], ef: [1, 0]
+  };
+  EX.lunge_jump = {
+    n: 'Fentes sautées', c: 'corps', eq: [], m: 'Jambes, explosivité, cardio',
+    cues: ['Descends en fente, genou arrière près du sol', 'Saute et inverse les jambes en l’air', 'Réception souple, enchaîne sans pause'],
+    alt: 'Fentes alternées sans saut',
+    k: [
+      { h: [114, 44], l: 4, a: [[-30, 20], [30, 20]], f: [[146, 5, 0], [84, 10, -60]] },
+      { h: [115, 84], l: 2, a: [[10, 20], [-10, 20]], f: [[124, 24, -20], [106, 26, -30]] },
+      { h: [114, 44], l: 4, a: [[30, 20], [-30, 20]], f: [[84, 10, -60], [146, 5, 0]] },
+      { h: [115, 84], l: 2, a: [[-10, 20], [10, 20]], f: [[106, 26, -30], [124, 24, -20]] }
+    ],
+    t: [0.32, 0.3, 0.32, 0.3], e: 'oioi', th: 0
+  };
+  EX.hollow_rock = {
+    n: 'Hollow rock', c: 'corps', eq: ['Tapis'], m: 'Abdominaux, gainage',
+    cues: ['Sur le dos, bras tendus derrière la tête, jambes tendues', 'Décolle épaules et jambes, bas du dos au sol', 'Balance-toi d’avant en arrière sans casser la forme'],
+    alt: 'Hollow hold immobile, genoux fléchis',
+    p: [['mat', 16, 206]],
+    k: [
+      { h: [118, 9], l: -80, d: 6, a: A(36, 27), f: [[184, 34, 20], [184, 37, 20]] },
+      { h: [122, 9], l: -66, d: 6, a: A(42, 48), f: [[189, 15, 4], [189, 18, 4]] }
+    ],
+    t: [0.6, 0.6]
+  };
+  EX.bb_thruster = {
+    n: 'Thruster barre', c: 'barre', eq: ['Barre'], m: 'Jambes, épaules, cardio', load: 1,
+    cues: ['Barre en front rack, coudes hauts', 'Squat complet, remonte en explosant', 'Enchaîne la poussée au-dessus de la tête'],
+    alt: 'Thruster haltères',
+    p: [['bar']],
+    k: [
+      { h: [101, 37], l: 30, a: RACK, f: FT },
+      { h: [120, 77], l: 0, a: [176, 4], f: FT }
+    ],
+    t: [0.8, 0.9], e: 'os', th: 0
+  };
+  EX.kb_sdhp = {
+    n: 'Tirage sumo kettlebell', c: 'kettlebell', eq: ['Kettlebell'], m: 'Fessiers, dos, épaules', load: 1,
+    cues: ['Pieds larges, kettlebell entre les jambes', 'Pousse avec les jambes puis tire jusqu’au menton', 'Coudes hauts, redescends en contrôle'],
+    alt: 'Swing kettlebell',
+    v: 'f', p: [['kb', 'g']],
+    k: [
+      { h: [120, 46], a: R(-12, -40), f: [[150, 5, 0], [90, 5, 0]], ts: [0.72, 0.72] },
+      { h: [120, 76], a: R(-13, -6), f: [[150, 5, 0], [90, 5, 0]], ts: [1, 1] },
+      { h: [120, 76], a: R(-12, -44), f: [[150, 5, 0], [90, 5, 0]], ts: [1, 1] }
+    ],
+    t: [0.5, 0.45, 0.6], e: 'oss', th: 0.5
+  };
+
+  // Réglages 3D (hw : demi-écart des mains en vue de profil) et charges conseillées.
   // sug = charge de départ en kg (par haltère, ou barre chargée) pour un pratiquant confirmé
   // d'environ 88 kg ; step = pas des boutons + / − dans le bilan.
   var EXTRA = {
-    row: { hz: 7, fz: 7 }, ski: { hz: 9 }, bike: { hz: 7, fz: 7 },
-    bb_row: { sug: 40, step: 5 }, bb_lunge: { sug: 40, step: 5 }, bb_pushpress: { sug: 40, step: 5, fz: 11 }, bb_rdl: { sug: 60, step: 5 },
-    db_bench: { sug: 20, hz: 17 }, db_bulgarian: { sug: 14 }, db_row1: { sug: 20 }, db_stepup: { sug: 14 }, db_stepover: { sug: 12 },
-    db_curl: { sug: 12 }, db_sumo: { sug: 20 }, db_skull: { sug: 10, hz: 7 }, db_latlunge: { sug: 12 }, db_cleanpress: { sug: 14 },
-    db_devil: { sug: 12 }, db_thruster: { sug: 12, fz: 11 }, db_press: { sug: 14 }, db_raise: { sug: 6, step: 1 }, db_hipthrust: { sug: 30, hz: 7 },
-    kb_goblet: { sug: 20, step: 4, hz: 3.5, fz: 11 }, kb_swing: { sug: 24, step: 4, hz: 3.5, fz: 11 }, kb_uprow: { sug: 16, step: 4 },
-    ball_slam: { sug: 10, step: 1, hz: 5 }, ball_lunge: { sug: 9, step: 1, hz: 5 },
-    air_squat: { fz: 11 }, jump_squat: { fz: 11 }, situp: { hz: 9 }, st_child: { hz: 9 }, st_fold: { hz: 8 }
+    row: { hw: 7 }, ski: { hw: 9 }, bike: { hw: 7 },
+    bb_row: { sug: 40, step: 5 }, bb_lunge: { sug: 40, step: 5 }, bb_pushpress: { sug: 40, step: 5 }, bb_rdl: { sug: 60, step: 5 }, bb_thruster: { sug: 35, step: 5 },
+    db_bench: { sug: 20, hw: 17 }, db_bulgarian: { sug: 14 }, db_row1: { sug: 20 }, db_stepup: { sug: 14 }, db_stepover: { sug: 12 },
+    db_curl: { sug: 12 }, db_sumo: { sug: 20 }, db_skull: { sug: 10, hw: 7 }, db_latlunge: { sug: 12 }, db_cleanpress: { sug: 14 },
+    db_devil: { sug: 12 }, db_thruster: { sug: 12 }, db_press: { sug: 14 }, db_raise: { sug: 6, step: 1 }, db_hipthrust: { sug: 30 },
+    db_snatch: { sug: 16 }, renegade_row: { sug: 14, hw: 13 }, farmer_carry: { sug: 24 },
+    kb_goblet: { sug: 20, step: 4 }, kb_swing: { sug: 24, step: 4 }, kb_uprow: { sug: 16, step: 4 }, kb_sdhp: { sug: 24, step: 4 },
+    ball_slam: { sug: 10, step: 1 }, ball_lunge: { sug: 9, step: 1 }, wall_ball: { sug: 9, step: 1 },
+    situp: { hw: 9 }, st_child: { hw: 9 }, st_fold: { hw: 8 }
   };
   Object.keys(EXTRA).forEach(function (id) { for (var k in EXTRA[id]) EX[id][k] = EXTRA[id][k]; });
   EX.db_hipthrust.p[1] = ['db1', 'e'];
 
-  // Remplaçants quand le matériel manque (du plus proche au poids du corps).
+  // Remplaçants quand le matériel manque ou qu'une zone fait mal (du plus proche au plus doux).
   var ALTS = {
     row: ['ski', 'bike', 'high_knees'], ski: ['row', 'bike', 'jacks'], bike: ['row', 'ski', 'high_knees'],
-    bb_row: ['db_row1', 'superman'], bb_lunge: ['ball_lunge', 'lunge_fwd'], bb_pushpress: ['db_press', 'db_thruster', 'pushup'], bb_rdl: ['kb_swing', 'bridge'],
-    db_bench: ['pushup'], db_bulgarian: ['lunge_fwd'], db_row1: ['bb_row', 'superman'], db_stepup: ['box_jump', 'lunge_fwd'], db_stepover: ['box_jump', 'jump_squat'],
-    db_curl: ['kb_uprow', 'shoulder_taps'], db_sumo: ['kb_goblet', 'air_squat'], db_skull: ['bench_dips', 'pushup'], db_latlunge: ['lunge_fwd'],
-    db_cleanpress: ['kb_swing', 'burpee'], db_devil: ['burpee'], db_thruster: ['kb_goblet', 'jump_squat'], db_press: ['bb_pushpress', 'pushup'],
-    db_raise: ['shoulder_taps'], db_hipthrust: ['bridge'], kb_goblet: ['db_sumo', 'air_squat'], kb_swing: ['bb_rdl', 'jump_squat'], kb_uprow: ['db_raise', 'shoulder_taps'],
-    ball_slam: ['burpee'], ball_lunge: ['lunge_fwd'], box_jump: ['jump_squat'], bench_dips: ['pushup']
+    bb_row: ['db_row1', 'renegade_row', 'superman'], bb_lunge: ['ball_lunge', 'lunge_fwd'], bb_pushpress: ['db_press', 'bb_thruster', 'pushup'], bb_rdl: ['kb_swing', 'bridge'],
+    bb_thruster: ['db_thruster', 'wall_ball', 'kb_goblet'],
+    db_bench: ['pushup', 'db_skull'], db_bulgarian: ['lunge_fwd', 'db_stepup'], db_row1: ['bb_row', 'renegade_row', 'superman'], db_stepup: ['box_jump', 'lunge_fwd'], db_stepover: ['box_jump', 'jump_squat'],
+    db_curl: ['kb_uprow', 'farmer_carry'], db_sumo: ['kb_goblet', 'kb_sdhp', 'air_squat'], db_skull: ['bench_dips', 'pushup'], db_latlunge: ['lunge_fwd'],
+    db_cleanpress: ['db_snatch', 'kb_swing', 'burpee'], db_devil: ['db_snatch', 'burpee'], db_thruster: ['bb_thruster', 'wall_ball', 'kb_goblet', 'jump_squat'], db_press: ['bb_pushpress', 'pushup'],
+    db_raise: ['shoulder_taps', 'side_plank'], db_hipthrust: ['bridge'], db_snatch: ['kb_swing', 'db_cleanpress', 'burpee'], renegade_row: ['db_row1', 'shoulder_taps'], farmer_carry: ['plank', 'high_knees'],
+    kb_goblet: ['db_sumo', 'air_squat'], kb_swing: ['kb_sdhp', 'bb_rdl', 'jump_squat'], kb_uprow: ['db_raise', 'kb_sdhp', 'shoulder_taps'], kb_sdhp: ['kb_swing', 'kb_uprow'],
+    ball_slam: ['wall_ball', 'burpee'], ball_lunge: ['lunge_fwd'], wall_ball: ['kb_goblet', 'jump_squat'], box_jump: ['jump_squat', 'lunge_jump'], bench_dips: ['pushup'],
+    dead_bug: ['plank', 'bridge'], side_plank: ['plank', 'dead_bug'], lunge_jump: ['lunge_fwd', 'jump_squat'], hollow_rock: ['dead_bug', 'plank'],
+    situp: ['dead_bug', 'v_up'], leg_raise: ['dead_bug', 'hollow_rock'], v_up: ['hollow_rock', 'dead_bug'], jump_squat: ['air_squat', 'lunge_jump'], climbers: ['plank', 'dead_bug'],
+    burpee: ['jump_squat', 'climbers', 'dead_bug'], pushup: ['shoulder_taps', 'dead_bug'], high_knees: ['jacks', 'bike'], jacks: ['high_knees', 'air_squat']
   };
   Object.keys(ALTS).forEach(function (id) { EX[id].alts = ALTS[id]; });
 
-  Object.keys(EX).forEach(function (id) { EX[id].id = id; });
+  // Zones sollicitées, pour écarter un mouvement quand une zone fait mal.
+  var ZONES = [
+    { id: 'epaules', n: 'Épaules' }, { id: 'poignets', n: 'Coudes et poignets' }, { id: 'dos', n: 'Bas du dos' },
+    { id: 'hanches', n: 'Hanches' }, { id: 'genoux', n: 'Genoux' }, { id: 'chevilles', n: 'Chevilles' }
+  ];
+  var Z = {
+    row: 'dos', ski: 'epaules dos', bike: '',
+    bb_row: 'dos', bb_lunge: 'genoux hanches poignets', bb_pushpress: 'epaules poignets', bb_rdl: 'dos', bb_thruster: 'epaules genoux poignets',
+    db_bench: 'epaules', db_bulgarian: 'genoux hanches', db_row1: '', db_stepup: 'genoux', db_stepover: 'genoux chevilles',
+    db_curl: 'poignets', db_sumo: 'genoux hanches', db_skull: 'poignets', db_latlunge: 'genoux hanches', db_cleanpress: 'epaules dos poignets',
+    db_devil: 'epaules dos poignets', db_thruster: 'epaules genoux', db_press: 'epaules', db_raise: 'epaules', db_hipthrust: '',
+    db_snatch: 'epaules dos', renegade_row: 'poignets epaules', farmer_carry: 'poignets',
+    kb_goblet: 'genoux', kb_swing: 'dos', kb_uprow: 'epaules poignets', kb_sdhp: 'epaules dos genoux',
+    ball_slam: 'epaules dos', ball_lunge: 'genoux hanches', wall_ball: 'genoux epaules',
+    box_jump: 'genoux chevilles', bench_dips: 'epaules poignets',
+    pushup: 'epaules poignets', bridge: '', burpee: 'epaules poignets genoux chevilles', climbers: 'poignets epaules', situp: 'dos',
+    leg_raise: 'dos hanches', plank: '', jump_squat: 'genoux chevilles', lunge_fwd: 'genoux hanches', high_knees: 'chevilles hanches', jacks: 'chevilles',
+    superman: 'dos', shoulder_taps: 'epaules poignets', v_up: 'dos', dead_bug: '', side_plank: 'epaules', lunge_jump: 'genoux chevilles hanches', hollow_rock: 'dos',
+    arm_circles: 'epaules', air_squat: 'genoux', inchworm: 'poignets dos', lunge_twist: 'genoux hanches',
+    st_fold: 'dos', st_quad: 'genoux', st_hipflexor: 'genoux', st_child: 'genoux', st_cobra: 'dos', st_shoulder: 'epaules'
+  };
+  Object.keys(EX).forEach(function (id) { EX[id].z = (Z[id] || '').split(' ').filter(Boolean); });
+
+  Object.keys(EX).forEach(function (id) { EX[id].id = id; });  Object.keys(EX).forEach(function (id) { EX[id].id = id; });
 
 
   G.PRIME_EX = EX;
   G.PRIME_CATS = CATS;
+  G.PRIME_ZONES = ZONES;
 })(window);

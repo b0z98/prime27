@@ -542,3 +542,21 @@ select { font: 16px/1.3 var(--body); color: var(--fg); background: var(--raised)
 .nudge b { color: var(--fg); }
 .last { font-size: 13.5px; color: var(--fg-2); }
 .last b { color: var(--accent); font-weight: 700; }
+
+/* ---------- matériel et douleurs (accueil) */
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill.warn { border-color: var(--renfo); color: var(--renfo); }
+small.warn { color: var(--renfo); }
+
+/* ---------- lecteur : échange d'exercice et rotation à plusieurs */
+.p-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
+.swapbtn { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: 700 13px/1 var(--body); }
+.swapbtn svg { width: 16px; height: 16px; }
+.swapbtn:active { background: var(--raised); }
+.p-team { flex: none; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.p-team::-webkit-scrollbar { display: none; }
+.tm { flex: 1 1 0; min-width: 0; display: grid; gap: 2px; padding: 7px 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; line-height: 1.2; }
+.tm b { font: 700 11px/1 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+.tm.me { border-color: var(--accent); }
+.tm.me b { color: var(--accent); }
+.tm.off { opacity: 0.55; }
