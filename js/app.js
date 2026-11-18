@@ -42,6 +42,7 @@
     mute: svg('<path d="M4 10v4h3l5 4V6l-5 4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
     info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'),
     check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+    google: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.5 5.5 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6H1.4a12 12 0 0 0 0 10.8l4-3z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1c.9-2.8 3.5-4.9 6.6-4.9z"/></svg>',
     chev: svg('<path d="M9 5l7 7-7 7"/>'),
     locker: svg('<path d="M10 6.5a2 2 0 1 1 2.6 1.9c-.4.1-.6.5-.6.9V10"/><path d="M12 10.5L3.6 16.6a1 1 0 0 0 .6 1.9h15.6a1 1 0 0 0 .6-1.9z"/>'),
     lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
@@ -51,7 +52,7 @@
   // ------------------------------------------------------------------ données locales
   var KEY = 'prime27.v1';
   function blank() {
-    return { v: 1, settings: { sound: true, voice: true, vibrate: true, start: null, vVoice: 1, vBeep: 0.6, voiceName: '', hard: false, equip: null, kg: 75, level: 'inter', head: 'classique', outfit: 'seance', onboarded: false }, history: [], weights: {}, live: null, minis: [], badges: {} };
+    return { v: 1, settings: { sound: true, voice: true, vibrate: true, start: null, vVoice: 1, vBeep: 0.6, voiceName: '', hard: false, equip: null, kg: 75, level: 'inter', head: 'classique', outfit: 'seance', onboarded: false }, history: [], weights: {}, live: null, minis: [], badges: {}, del: [], mt: 0 };
   }
   var db = blank();
   try {
@@ -66,10 +67,22 @@
         db.live = o.live || null;
         db.minis = Array.isArray(o.minis) ? o.minis : [];
         db.badges = o.badges || {};
+        db.del = Array.isArray(o.del) ? o.del : [];
+        db.mt = o.mt || 0;
       }
     }
   } catch (e) { /* stockage indisponible : l'app fonctionne sans mémoire */ }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* idem */ } }
+  // contenu à sauvegarder (sans la séance en cours) ; sert à dater les changements et à la synchronisation
+  function payloadStr() { return JSON.stringify({ s: db.settings, h: db.history, w: db.weights, m: db.minis, b: db.badges, d: db.del || [] }); }
+  var lastPayload = payloadStr();
+  function save() {
+    try {
+      var p = payloadStr();
+      if (p !== lastPayload) { db.mt = Date.now(); lastPayload = p; }
+      localStorage.setItem(KEY, JSON.stringify(db));
+    } catch (e) { /* stockage indisponible */ }
+    cloudQueue();
+  }
 
   // ------------------------------------------------------------------ dates et programme
   function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -359,7 +372,7 @@
         '<ol class="strip">' + strip + '</ol>' +
         '<p class="goal"><b>' + nDone + ' / ' + m.sessions.length + '</b> ' + goal + '</p>' +
         weekTiles(entries) +
-      '</section>' + live + installCard() +
+      '</section>' + live + backupNudge() + installCard() +
       '<section class="list"><div class="hrow"><h2 class="h2">Séances de la semaine</h2><button class="pill tap" data-act="equip">' + esc(equipLabel()) + I.chev + '</button></div>' +
       m.sessions.map(function (s) {
         var tl = timeline(s), h = doneBy[s.id], isNext = nextS && nextS.id === s.id && !trainedToday;
@@ -512,6 +525,7 @@
     }
     return '<div class="view v-settings">' +
       '<header class="top"><h1 class="disp page">Réglages</h1></header>' +
+      accountSection() +
       '<section><h2 class="h2">Pendant la séance</h2>' +
         sw('sound', 'Signaux sonores', 'Décompte 3-2-1, début et fin d’effort') +
         sw('voice', 'Annonces vocales', 'Nom du prochain exercice, changement de côté') +
@@ -528,11 +542,7 @@
         '<label class="field"><span>Début du cycle (lundi de la semaine 1)</span><input type="date" id="set-start" value="' + esc(db.settings.start) + '"></label>' +
         '<p class="hint">Les quatre semaines du mois se calent sur cette date. Change-la pour recommencer un cycle.</p></section>' +
       shareSection() +
-      '<section><h2 class="h2">Sauvegarde</h2>' +
-        '<p class="hint">Tes séances et tes charges sont stockées sur cet appareil uniquement. Copie le texte ci-dessous pour les garder ou les transférer.</p>' +
-        '<textarea id="set-data" rows="4" spellcheck="false" aria-label="Données de sauvegarde"></textarea>' +
-        '<div class="btnrow"><button class="btn sm" data-act="export">Copier ma sauvegarde</button><button class="btn sm ghost" data-act="import">Restaurer ce texte</button></div>' +
-        '<button class="link danger" data-act="reset">Effacer toutes mes données</button></section>' +
+
       '<p class="hint">PRIME27 · mois ' + PROG.months.length + ' sur ' + PROG.months.length + ' disponible · ' + Object.keys(EX).length + ' mouvements animés.</p>' +
       '</div>';
   }
@@ -1278,6 +1288,7 @@
       '<div class="field inline"><label for="w-kg">Ton poids</label>' + stepper('w-kg', 'data-prof', 'kg', kg(), 'kg', 1) + '</div>' +
       '<p class="h2">Ton niveau</p>' + levelSeg() +
       '<button class="btn go" data-act="welcome">C’est parti</button>' +
+      (cloud.state !== 'off' ? '<button class="btn" data-act="welcome-login">J’ai déjà un compte</button>' : '') +
       '<p class="hint">Tu avais déjà l’appli ailleurs ? Restaure ta sauvegarde dans Réglages.</p></div>';
     sheet.classList.add('on');
   }
@@ -1458,6 +1469,280 @@
     stamp.t = setTimeout(function () { el.classList.remove('on'); }, 2700);
   }
 
+  // ------------------------------------------------------------------ sauvegarde : protection locale, fichier, compte en ligne
+  // Configuration Firebase (publique par conception : l'accès aux données est verrouillé par les règles Firestore).
+  var FIREBASE = {
+    apiKey: "AIzaSyD4hpkP7Z6ZxxqZsIzi_NxHU9poSxsIoRM",
+    authDomain: "prime27-54683.firebaseapp.com",
+    projectId: "prime27-54683",
+    appId: "1:514005330054:web:39d882d7161c7468514907"
+  };
+  var FB_BASE = 'https://www.gstatic.com/firebasejs/11.0.2/';
+  var cloud = { state: FIREBASE && !onClaude ? 'out' : 'off', user: null, busy: false, pending: false, timer: 0, sent: null, last: 0, pulled: 0 };
+  var persisted = null;
+
+  function protectStorage() {
+    try {
+      if (!navigator.storage || !navigator.storage.persist) return;
+      navigator.storage.persisted().then(function (p) { return p || navigator.storage.persist(); })
+        .then(function (p) { persisted = !!p; }, function () { persisted = false; });
+    } catch (e) { /* rien */ }
+  }
+
+  // fusion de deux sauvegardes : on garde toutes les séances, les badges les plus anciens,
+  // et les réglages de la version la plus récente
+  function mergeData(r, rmt) {
+    if (!r) return;
+    var del = {}, k;
+    (db.del || []).concat(r.d || []).forEach(function (id) { del[id] = 1; });
+    function union(a, b) {
+      var seen = {}, out = [];
+      (a || []).concat(b || []).forEach(function (x) { if (x && x.id != null && !del[x.id] && !seen[x.id]) { seen[x.id] = 1; out.push(x); } });
+      return out.sort(function (x, y) { return (x.ts || 0) - (y.ts || 0); });
+    }
+    db.history = union(db.history, r.h);
+    db.minis = union(db.minis, r.m);
+    var rb = r.b || {};
+    for (k in rb) if (!db.badges[k] || rb[k] < db.badges[k]) db.badges[k] = rb[k];
+    if ((rmt || 0) > (db.mt || 0)) {
+      var vn = db.settings.voiceName;
+      Object.assign(db.settings, r.s || {});
+      db.settings.voiceName = vn;
+      db.weights = Object.assign({}, db.weights, r.w || {});
+      db.mt = rmt;
+    } else db.weights = Object.assign({}, r.w || {}, db.weights);
+    db.del = Object.keys(del).map(Number);
+    resetTimelines();
+  }
+  function storeQuiet() {
+    lastPayload = payloadStr();
+    try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* rien */ }
+  }
+  function ago(ts) {
+    var s = Math.round((Date.now() - ts) / 1000);
+    if (s < 60) return 'à l’instant';
+    if (s < 3600) return 'il y a ' + Math.round(s / 60) + ' min';
+    if (s < 86400) return 'il y a ' + Math.round(s / 3600) + ' h';
+    return 'il y a ' + Math.round(s / 86400) + ' j';
+  }
+  function repaintAccount() {
+    if (P || M) return;
+    if (route.name === 'settings' || route.name === 'home') { var y = window.scrollY; render(); window.scrollTo(0, y); }
+  }
+
+  // ----- compte en ligne (Firebase)
+  var fbReady = null;
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = function () { rej(new Error('script')); };
+      document.head.appendChild(s);
+    });
+  }
+  function fb() {
+    if (!FIREBASE || onClaude) return Promise.reject(new Error('off'));
+    if (!fbReady) {
+      fbReady = loadScript(FB_BASE + 'firebase-app-compat.js')
+        .then(function () { return Promise.all([loadScript(FB_BASE + 'firebase-auth-compat.js'), loadScript(FB_BASE + 'firebase-firestore-compat.js')]); })
+        .then(function () {
+          var f = window.firebase;
+          f.initializeApp(FIREBASE);
+          f.auth().languageCode = 'fr';
+          f.auth().onAuthStateChanged(function (u) {
+            cloud.user = u;
+            cloud.state = u ? 'in' : 'out';
+            if (u) { db.settings.cloud = true; storeQuiet(); cloudPull(); }
+            repaintAccount();
+          });
+          return f;
+        });
+      fbReady.catch(function () { fbReady = null; cloud.state = db.settings.cloud ? 'wait' : 'out'; repaintAccount(); });
+    }
+    return fbReady;
+  }
+  function docRef() { return window.firebase.firestore().collection('users').doc(cloud.user.uid); }
+  function cloudPull() {
+    if (!cloud.user || !navigator.onLine) return;
+    cloud.busy = true; cloud.pulled = Date.now();
+    docRef().get().then(function (snap) {
+      var remote = null;
+      if (snap.exists) {
+        var d = snap.data();
+        remote = d.data;
+        try { mergeData(JSON.parse(d.data), d.mt || 0); } catch (e) { /* sauvegarde illisible : on garde le local */ }
+        cloud.sent = remote;
+      }
+      storeQuiet();
+      cloud.busy = false; cloud.last = Date.now();
+      if (payloadStr() !== remote) cloudPush();
+      checkBadges();
+      repaintAccount();
+    }).catch(function () { cloud.busy = false; cloud.pending = true; repaintAccount(); });
+  }
+  function cloudQueue() {
+    if (!cloud || cloud.state !== 'in') return;
+    clearTimeout(cloud.timer);
+    cloud.timer = setTimeout(cloudPush, 3000);
+  }
+  function cloudPush() {
+    if (!cloud.user) return;
+    var p = payloadStr();
+    if (p === cloud.sent) return;
+    if (!navigator.onLine) { cloud.pending = true; repaintAccount(); return; }
+    cloud.busy = true;
+    docRef().set({ data: p, mt: db.mt || Date.now(), at: window.firebase.firestore.FieldValue.serverTimestamp(), v: 1 })
+      .then(function () { cloud.sent = p; cloud.busy = false; cloud.pending = false; cloud.last = Date.now(); repaintAccount(); })
+      .catch(function () { cloud.busy = false; cloud.pending = true; repaintAccount(); });
+  }
+  window.addEventListener('online', function () { if (cloud.state === 'in') cloudPull(); else if (cloud.state === 'wait') fb().catch(function () { /* toujours hors ligne */ }); });
+  document.addEventListener('visibilitychange', function () {
+    if (cloud.state !== 'in') return;
+    if (document.visibilityState === 'hidden') { clearTimeout(cloud.timer); cloudPush(); }
+    else if (Date.now() - cloud.pulled > 60000 && !P) cloudPull();
+  });
+
+  var AUTH_ERR = {
+    'auth/invalid-email': 'Cette adresse e-mail n’est pas valide.',
+    'auth/missing-password': 'Indique un mot de passe.',
+    'auth/weak-password': 'Le mot de passe doit faire au moins 6 caractères.',
+    'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse : connecte-toi.',
+    'auth/invalid-credential': 'E-mail ou mot de passe incorrect.',
+    'auth/invalid-login-credentials': 'E-mail ou mot de passe incorrect.',
+    'auth/wrong-password': 'E-mail ou mot de passe incorrect.',
+    'auth/user-not-found': 'Aucun compte avec cette adresse : crée-le.',
+    'auth/popup-blocked': 'La fenêtre Google ne s’ouvre pas ici. Utilise l’e-mail et le mot de passe.',
+    'auth/operation-not-supported-in-this-environment': 'La fenêtre Google ne s’ouvre pas ici. Utilise l’e-mail et le mot de passe.',
+    'auth/web-storage-unsupported': 'La fenêtre Google ne s’ouvre pas ici. Utilise l’e-mail et le mot de passe.',
+    'auth/network-request-failed': 'Pas de réseau. Réessaie une fois connecté.',
+    'auth/too-many-requests': 'Trop d’essais. Patiente quelques minutes.',
+    'auth/unauthorized-domain': 'Cette adresse n’est pas autorisée dans Firebase.',
+    'auth/requires-recent-login': 'Par sécurité, déconnecte-toi puis reconnecte-toi avant de supprimer ton compte.'
+  };
+  function authErr(e) {
+    var c = e && e.code;
+    if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+    var msg = AUTH_ERR[c] || (e && e.message === 'script' ? 'Connexion impossible sans réseau.' : 'Connexion impossible (' + (c || 'erreur') + ').');
+    var el = document.getElementById('acc-err');
+    if (el) el.textContent = msg; else toast(msg);
+  }
+  function signGoogle() {
+    fb().then(function (f) { return f.auth().signInWithPopup(new f.auth.GoogleAuthProvider()); })
+      .then(function () { closeSheet(); toast('Connecté : ta progression est sauvegardée'); }, authErr);
+  }
+  function openEmail() {
+    sheet.innerHTML = '<div class="sheet-bg" data-sheet="close"></div><div class="sheet-p s-cardio" role="dialog" aria-modal="true" aria-label="Connexion par e-mail">' +
+      '<button class="ic sheet-x alt" data-sheet="close" aria-label="Fermer">' + I.close + '</button>' +
+      '<h2 class="disp sheet-n">Ton compte</h2>' +
+      '<p class="hint">Un e-mail et un mot de passe suffisent, sans compte Google. Ça marche sur iPhone comme sur Android.</p>' +
+      '<form class="acc-form" id="acc-form" novalidate>' +
+        '<label class="field"><span>E-mail</span><input type="email" id="acc-email" autocomplete="email" inputmode="email" required></label>' +
+        '<label class="field"><span>Mot de passe (6 caractères minimum)</span><input type="password" id="acc-pass" autocomplete="current-password" minlength="6" required></label>' +
+        '<p class="acc-err" id="acc-err" role="alert"></p>' +
+        '<button class="btn go" type="submit">Se connecter</button>' +
+        '<button class="btn" type="button" data-acc="signup">Créer mon compte</button>' +
+        '<button class="link" type="button" data-acc="reset">Mot de passe oublié</button>' +
+      '</form></div>';
+    sheet.classList.add('on');
+    fb().catch(function () { authErr({ message: 'script' }); });
+    $('#acc-form').addEventListener('submit', function (e) { e.preventDefault(); emailAuth('in'); });
+  }
+  function emailAuth(mode) {
+    var em = ($('#acc-email').value || '').trim(), pw = $('#acc-pass').value || '';
+    $('#acc-err').textContent = '';
+    fb().then(function (f) {
+      if (mode === 'reset') {
+        return f.auth().sendPasswordResetEmail(em).then(function () { $('#acc-err').textContent = 'E-mail envoyé : suis le lien pour choisir un nouveau mot de passe.'; });
+      }
+      var a = mode === 'signup' ? f.auth().createUserWithEmailAndPassword(em, pw) : f.auth().signInWithEmailAndPassword(em, pw);
+      return a.then(function () { closeSheet(); toast(mode === 'signup' ? 'Compte créé : ta progression est sauvegardée' : 'Connecté : ta progression est sauvegardée'); });
+    }).catch(authErr);
+  }
+  function signOutCloud() {
+    ask('Se déconnecter ?', 'Tes données restent sur ce téléphone et dans ton compte. Elles ne seront plus synchronisées tant que tu ne te reconnectes pas.', [
+      { label: 'Se déconnecter', fn: function () { clearTimeout(cloud.timer); cloudPush(); db.settings.cloud = false; storeQuiet(); fb().then(function (f) { return f.auth().signOut(); }).then(repaintAccount); } },
+      { label: 'Annuler', cls: 'ghost' }
+    ]);
+  }
+  function deleteCloud() {
+    ask('Supprimer ton compte en ligne ?', 'Ta sauvegarde en ligne et ton compte seront effacés. Les données de ce téléphone restent.', [
+      { label: 'Supprimer mon compte', cls: 'danger', fn: function () {
+        var u = cloud.user;
+        docRef().delete().then(function () { return u.delete(); }).then(function () {
+          db.settings.cloud = false; cloud.sent = null; storeQuiet(); toast('Compte en ligne supprimé'); repaintAccount();
+        }).catch(authErr);
+      } },
+      { label: 'Annuler', cls: 'ghost' }
+    ]);
+  }
+
+  // ----- fichier de sauvegarde
+  function backupJson() { return JSON.stringify({ v: 1, app: 'prime27', mt: db.mt || 0, settings: db.settings, history: db.history, weights: db.weights, minis: db.minis, badges: db.badges, del: db.del || [] }); }
+  function backupFile() {
+    var name = 'prime27-sauvegarde-' + ymd(new Date()) + '.json', blob = new Blob([backupJson()], { type: 'application/json' });
+    function done() { db.settings.lastBackup = Date.now(); save(); repaintAccount(); }
+    var file = null;
+    try { file = new File([blob], name, { type: 'application/json' }); } catch (e) { file = null; }
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Sauvegarde PRIME27' }).then(function () { done(); toast('Sauvegarde envoyée'); }, function () { /* partage annulé */ });
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    done(); toast('Fichier enregistré dans tes téléchargements');
+  }
+  function restoreObj(o) {
+    if (!o || o.v !== 1 || !Array.isArray(o.history)) throw new Error('format');
+    var before = db.history.length;
+    mergeData({ s: o.settings, h: o.history, w: o.weights, m: o.minis, b: o.badges, d: o.del }, o.mt || 1);
+    save();
+    return db.history.length - before;
+  }
+  function restoreFile(file) {
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      try { var n = restoreObj(JSON.parse(String(fr.result || ''))); toast('Sauvegarde restaurée' + (n > 0 ? ' : ' + n + (n > 1 ? ' séances ajoutées' : ' séance ajoutée') : '')); render(); }
+      catch (e) { toast('Ce fichier n’est pas une sauvegarde PRIME27'); }
+    };
+    fr.readAsText(file);
+  }
+
+  // ----- écrans
+  function accountSection() {
+    var h = '<section><h2 class="h2">Compte et sauvegarde</h2>';
+    if (cloud.state === 'in') {
+      var u = cloud.user || {}, st = cloud.busy ? 'Synchronisation en cours…' : cloud.pending ? 'En attente de réseau : la sauvegarde partira dès que possible.' : cloud.last ? 'Sauvegardé ' + ago(cloud.last) + '.' : 'Connecté.';
+      h += '<div class="acc on"><span class="acc-dot"></span><span><b>' + esc(u.email || 'Compte connecté') + '</b><small>' + st + ' Tout se sauvegarde tout seul.</small></span></div>' +
+        '<div class="btnrow"><button class="btn sm" data-act="syncnow">Synchroniser maintenant</button><button class="btn sm ghost" data-act="signout">Se déconnecter</button></div>';
+    } else if (cloud.state === 'wait' || cloud.state === 'loading') {
+      h += '<div class="acc"><span class="acc-dot"></span><span><b>Compte connecté</b><small>' + (cloud.state === 'wait' ? 'Pas de réseau : la synchronisation reprendra toute seule.' : 'Connexion au compte…') + '</small></span></div>';
+    } else if (cloud.state === 'out') {
+      h += '<p class="hint">Connecte-toi pour sauvegarder ta progression automatiquement et la retrouver sur un autre téléphone.</p>' +
+        '<div class="btncol"><button class="btn go-g" data-act="google">' + I.google + 'Continuer avec Google</button><button class="btn" data-act="email">Continuer avec un e-mail</button></div>';
+    }
+    h += '<p class="hint">' + (persisted ? 'Ce navigateur protège tes données : il ne les effacera pas de lui-même.' : 'Tes données sont sur ce téléphone.') +
+      (db.settings.lastBackup ? ' Dernier fichier de sauvegarde ' + ago(db.settings.lastBackup) + '.' : '') + '</p>';
+    if (!onClaude) h += '<div class="btnrow"><button class="btn sm ghost" data-act="backupfile">Sauvegarder dans un fichier</button><label class="btn sm ghost filebtn">Restaurer un fichier<input type="file" id="restore-file" accept=".json,application/json"></label></div>';
+    h += '<details class="adv"><summary>Copier ou coller une sauvegarde en texte</summary>' +
+      '<textarea id="set-data" rows="4" spellcheck="false" aria-label="Données de sauvegarde"></textarea>' +
+      '<div class="btnrow"><button class="btn sm" data-act="export">Copier ma sauvegarde</button><button class="btn sm ghost" data-act="import">Restaurer ce texte</button></div></details>';
+    if (cloud.state === 'in') h += '<button class="link" data-act="deletecloud">Supprimer mon compte en ligne</button>';
+    h += '<button class="link danger" data-act="reset">Effacer toutes mes données de ce téléphone</button></section>';
+    return h;
+  }
+  // rappel sur l'accueil quand rien n'est sauvegardé depuis une semaine
+  function backupNudge() {
+    if (cloud.state === 'in' || cloud.state === 'loading' || !db.history.length || onClaude) return '';
+    var ref = db.settings.lastBackup || db.history[0].ts || Date.now();
+    if (Date.now() - ref < 7 * 864e5) return '';
+    return '<section class="nudge"><p><b>Ta progression n’est que sur ce téléphone.</b> ' +
+      (db.settings.lastBackup ? 'Dernière sauvegarde ' + ago(db.settings.lastBackup) + '.' : 'Aucune sauvegarde pour l’instant.') + '</p>' +
+      '<div class="btnrow">' + (cloud.state === 'out' ? '<button class="btn sm" data-go="settings">Créer un compte</button>' : '') +
+      '<button class="btn sm ghost" data-act="backupfile">Sauvegarder un fichier</button></div></section>';
+  }
+
   // ------------------------------------------------------------------ interactions
   document.addEventListener('click', function (e) {
     var t = e.target.closest('button,[data-sheet]');
@@ -1469,6 +1754,7 @@
       if (inp) inp.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
+    if (t.hasAttribute('data-acc')) { emailAuth(t.getAttribute('data-acc')); return; }
     if (t.hasAttribute('data-pick')) { pick(t.getAttribute('data-pick'), t.getAttribute('data-id')); return; }
     if (t.hasAttribute('data-level')) {
       db.settings.level = t.getAttribute('data-level'); save();
@@ -1489,7 +1775,7 @@
     if (t.hasAttribute('data-del')) {
       var id = +t.getAttribute('data-del');
       ask('Supprimer cette séance ?', 'Elle disparaîtra du journal et du calendrier.', [
-        { label: 'Supprimer', cls: 'danger', fn: function () { db.history = db.history.filter(function (h) { return h.id !== id; }); save(); render(); } },
+        { label: 'Supprimer', cls: 'danger', fn: function () { db.history = db.history.filter(function (h) { return h.id !== id; }); db.del = (db.del || []).concat([id]); save(); render(); } },
         { label: 'Annuler', cls: 'ghost' }
       ]);
       return;
@@ -1504,6 +1790,7 @@
       db.settings[t.getAttribute('data-vol')] = parseFloat(t.value); save();
       if (t.getAttribute('data-vol') === 'vBeep') { audio(); SND.go(); } else say('Volume des annonces.');
     }
+    if (t.id === 'restore-file') { restoreFile(t.files && t.files[0]); t.value = ''; }
     if (t.hasAttribute && t.hasAttribute('data-prof')) { var kv = parseFloat(t.value); if (kv > 0) { db.settings.kg = Math.round(kv); save(); } }
     if (t.id === 'set-voice') { db.settings.voiceName = t.value; save(); say('Voici la voix de ton coach. Prêt ? C’est parti !'); }
     if (t.hasAttribute && t.hasAttribute('data-eq')) {
@@ -1544,6 +1831,13 @@
     else if (a === 'welcome') { db.settings.onboarded = true; save(); closeSheet(); render(); }
     else if (a === 'share') shareApp();
     else if (a === 'install') installApp();
+    else if (a === 'welcome-login') { db.settings.onboarded = true; save(); closeSheet(); go('settings'); }
+    else if (a === 'google') signGoogle();
+    else if (a === 'email') openEmail();
+    else if (a === 'signout') signOutCloud();
+    else if (a === 'deletecloud') deleteCloud();
+    else if (a === 'syncnow') { cloud.sent = null; cloudPull(); repaintAccount(); }
+    else if (a === 'backupfile') backupFile();
     else if (a === 'start') { var s = findSession(route.id); if (s) startSession(s); }
     else if (a === 'resume') { var ls = findSession(db.live.sid); if (ls) startSession(ls, db.live); }
     else if (a === 'drop') { db.live = null; save(); render(); }
@@ -1552,16 +1846,14 @@
       var v0 = db.settings.voice; db.settings.voice = true; say('Souffle ! On enchaîne avec : rameur.'); db.settings.voice = v0;
     }
     else if (a === 'export') {
-      var ta = $('#set-data'), txt = JSON.stringify({ v: 1, settings: db.settings, history: db.history, weights: db.weights, minis: db.minis, badges: db.badges });
+      var ta = $('#set-data'), txt = backupJson();
       ta.value = txt; ta.select();
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { toast('Sauvegarde copiée'); }, function () { toast('Texte prêt : copie-le à la main'); });
       else toast('Texte prêt : copie-le à la main');
     }
     else if (a === 'import') {
       try {
-        var o2 = JSON.parse($('#set-data').value);
-        if (!o2 || o2.v !== 1 || !Array.isArray(o2.history)) throw new Error('format');
-        Object.assign(db.settings, o2.settings || {}); db.history = o2.history; db.weights = o2.weights || {}; db.minis = o2.minis || []; db.badges = o2.badges || {}; resetTimelines(); save();
+        restoreObj(JSON.parse($('#set-data').value));
         toast('Sauvegarde restaurée : ' + db.history.length + ' séances'); render();
       } catch (err) { toast('Texte illisible : colle la sauvegarde complète'); }
     }
@@ -1574,6 +1866,8 @@
   }
 
   render();
+  protectStorage();
+  if (FIREBASE && !onClaude && db.settings.cloud) { cloud.state = 'loading'; fb().catch(function () { /* hors ligne */ }); }
   if (!db.settings.onboarded && !db.history.length) openWelcome();
   if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude/.test(location.hostname)) {
     try { navigator.serviceWorker.register('sw.js').catch(function () { /* hors ligne indisponible */ }); } catch (e) { /* rien */ }
