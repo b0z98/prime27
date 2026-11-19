@@ -17,6 +17,7 @@ Les séances, charges et badges restent sur ton téléphone. Pour les garder ou 
 - `js/app.js` : interface, lecteur de séance, suivi, vestiaire
 - `css/app.css` : style
 - `sw.js`, `manifest.webmanifest`, `icons/` : installation et usage hors ligne
+- `firestore.rules` : règles de sécurité de la base Firebase (comptes, amis, salons)
 - `tools/` : serveur local de test (`serve.ps1`), planche de poses (`poses.html`), atelier du personnage (`figlab.html`), assemblage en un seul fichier (`build.ps1`)
 
 Aucune dépendance ni étape de compilation : les fichiers sont servis tels quels.

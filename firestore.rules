@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// PRIME27 : règles de sécurité Firestore (à coller dans la console Firebase, onglet Règles).
+// - users/{uid} : la sauvegarde de chacun, lisible et modifiable par lui seul.
+// - users/{uid}/friends : la liste d'amis ; on peut s'ajouter soi-même chez quelqu'un dont on a le code.
+// - users/{uid}/invites : les invitations à une séance, déposées par un ami.
+// - profiles/{uid} : pseudo et code ami, privés.
+// - codes/{code} : annuaire des codes amis, consultable code par code (pas de liste).
+// - rooms/{code} : salons de séance synchronisée, accessibles à qui connaît le code.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function me(uid) { return signed() && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow read, delete: if me(uid);
+      allow create, update: if me(uid)
+        && request.resource.data.keys().hasOnly(['data', 'mt', 'at', 'v'])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 900000;
+
+      match /friends/{fid} {
+        allow read: if me(uid);
+        allow create, update, delete: if me(uid) || me(fid);
+      }
+      match /invites/{rid} {
+        allow read, delete: if me(uid);
+        allow create, update: if signed() && request.resource.data.from == request.auth.uid;
+      }
+    }
+
+    match /profiles/{uid} {
+      allow read, write: if me(uid);
+    }
+
+    match /codes/{code} {
+      allow get: if signed();
+      allow create: if signed() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if signed() && resource.data.uid == request.auth.uid;
+    }
+
+    match /rooms/{rid} {
+      allow get, update: if signed();
+      allow create: if signed() && request.resource.data.host == request.auth.uid;
+      allow delete: if signed() && resource.data.host == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

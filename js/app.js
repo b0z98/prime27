@@ -373,7 +373,7 @@
         '<ol class="strip">' + strip + '</ol>' +
         '<p class="goal"><b>' + nDone + ' / ' + m.sessions.length + '</b> ' + goal + '</p>' +
         weekTiles(entries) +
-      '</section>' + live + backupNudge() + installCard() +
+      '</section>' + inviteBanner() + live + backupNudge() + installCard() +
       '<section class="list"><h2 class="h2">Séances de la semaine</h2>' +
       '<div class="pills"><button class="pill tap" data-act="equip">' + esc(equipLabel()) + I.chev + '</button>' +
       '<button class="pill tap' + (painList().length ? ' warn' : '') + '" data-act="pain">' + esc(painShort()) + I.chev + '</button></div>' +
@@ -541,6 +541,7 @@
     return '<div class="view v-settings">' +
       '<header class="top"><h1 class="disp page">Réglages</h1></header>' +
       accountSection() +
+      friendsSection() +
       '<section><h2 class="h2">Pendant la séance</h2>' +
         sw('sound', 'Signaux sonores', 'Décompte 3-2-1, début et fin d’effort') +
         sw('voice', 'Annonces vocales', 'Nom du prochain exercice, changement de côté') +
@@ -602,9 +603,13 @@
   // ------------------------------------------------------------------ lecteur de séance
   var P = null, timer = 0;
 
-  function startSession(s, from) {
+  function startSession(s, from, sync) {
     var tl = cloneTl(timeline(s));
     P = { swap: {}, team: teamSize(), s: s, tl: tl, i: from ? from.i : 0, el: from ? from.el : 0, active: from ? (from.active || 0) : 0, run: true, last: Date.now(), done: false, fired: {}, saveAt: 0, fig: null, nfig: null, cueI: 0, heat: 0 };
+    if (sync) {
+      P.sync = { id: sync.id, state: sync.data.state, t0: sync.data.t0 || 0, pausePos: sync.data.pausePos || 0 };
+      applyRoomData(sync.data, true);
+    }
     overlay.innerHTML = '<div class="player s-' + s.type + '" id="player">' +
       '<canvas class="p-fire" id="p-fire" aria-hidden="true"></canvas>' +
       '<header class="p-top"><button class="ic" data-p="quit" aria-label="Quitter la séance">' + I.close + '</button>' +
@@ -626,7 +631,11 @@
     overlay.classList.add('on');
     document.documentElement.classList.add('locked');
     audio(); wakeOn();
-    paintSeg(true);
+    if (P.sync) {
+      P.counting = syncPos() < 0;
+      paintSeg(false);
+      if (P.counting) paintCountdown(-syncPos());
+    } else paintSeg(true);
     clearInterval(timer);
     timer = setInterval(tick, 100);
   }
@@ -641,7 +650,7 @@
   }
 
   function paintSeg(announce) {
-    var g = P.tl.segs[P.i], s = P.s, ex = EX[g.ex], b = g.bi != null ? P.tl.blocks[g.bi] : null, pl = $('#player');
+    var g = P.tl.segs[P.i], s = P.s, ex = EX[myEx(g)], b = g.bi != null ? P.tl.blocks[g.bi] : null, pl = $('#player');
     if (!pl) return;
     pl.className = 'player s-' + s.type + ' ph-' + g.t + (P.run ? '' : ' paused') + (g.t === 'work' && g.fin ? ' inferno' : '');
     P.fired = {};
@@ -660,7 +669,7 @@
     if (g.t === 'work' && g.fin) phase = db.settings.hard ? 'Zone rouge · fin de bloc' : (g.tag ? 'Effort max' : 'Dernier effort') + ' · fin de bloc';
     if (g.t === 'work' && P.team > 1) {
       var tp0 = teamPlan(g);
-      if (tp0 && tp0[0].rest) { var act0 = tp0.filter(function (x) { return !x.rest; })[0]; phase = 'À ' + (act0 ? act0.name : 'ton partenaire') + ' · récupère'; }
+      if (tp0 && tp0[P.me || 0].rest) { var act0 = tp0.filter(function (x) { return !x.rest; })[0]; phase = 'À ' + (act0 ? act0.name : 'ton partenaire') + ' · récupère'; }
     }
     if (g.t === 'rest' || g.t === 'trans' || g.t === 'prep') badge = 'À suivre';
     $('#p-sec').textContent = sec;
@@ -681,7 +690,7 @@
 
     var nx = nextMove(P.i), nb = $('#p-next');
     if (nx) {
-      var nex = EX[nx.seg.ex];
+      var nex = EX[myEx(nx.seg)];
       $('#p-nlabel').textContent = 'Ensuite' + (nx.pause ? ' · après ' + secLabel(nx.pause) + (nx.kind === 'rest' ? ' de repos' : ' de transition') : '') + ' · ' + secLabel(nx.seg.dur);
       $('#p-nname').textContent = nex.n;
       var no = { still: true, shirt: SHIRT[s.type], look: LOOK() };
@@ -715,17 +724,17 @@
       else if (g.t === 'warm') { SND.go(); say((g.n === 1 ? 'Échauffement. ' : '') + ex.n + '.'); }
       else if (g.t === 'stretch') { SND.rest(); say((g.n === 1 ? (db.settings.hard ? 'Séance survécue. Tu es encore debout. Étirements. ' : 'Bravo, c’est fini. Étirements. ') : '') + ex.n + '.'); }
     }
-    db.live = { sid: s.id, i: P.i, el: P.el, active: P.active, ts: Date.now() };
+    if (!P.sync) db.live = { sid: s.id, i: P.i, el: P.el, active: P.active, ts: Date.now() };
     save();
   }
   function paintLoad() {
-    var ex = EX[P.tl.segs[P.i].ex], w = ex && ex.load ? loadLabel(ex.id) : '', el = $('#p-load');
+    var ex = EX[myEx(P.tl.segs[P.i])], w = ex && ex.load ? loadLabel(ex.id) : '', el = $('#p-load');
     if (!el) return;
     el.textContent = w;
     el.hidden = !w;
   }
   function paintCue() {
-    var g = P.tl.segs[P.i], ex = EX[g.ex], b = g.bi != null ? P.tl.blocks[g.bi] : null, cue = '';
+    var g = P.tl.segs[P.i], ex = EX[myEx(g)], b = g.bi != null ? P.tl.blocks[g.bi] : null, cue = '';
     if (!ex) return;
     if (g.t === 'trans' || g.t === 'prep') cue = b.note || ex.cues[0];
     else if (g.t === 'rest') cue = ex.cues[0];
@@ -762,16 +771,32 @@
 
   function tick() {
     if (!P || P.done) return;
-    var now = Date.now(), dt = (now - P.last) / 1000;
+    var now = Date.now(), dt = (now - P.last) / 1000, g, jumped = 0;
     P.last = now;
-    if (!P.run || dt <= 0) return;
-    P.el += dt; P.active += dt;
-    var g = P.tl.segs[P.i], jumped = 0;
-    while (P.el >= g.dur) {
-      P.el -= g.dur;
-      if (P.i >= P.tl.segs.length - 1) { finish(false); return; }
-      P.i++; jumped++;
+    if (P.sync) {
+      // séance synchronisée : l'étape se déduit de l'horloge commune
+      var pos = syncPos(), segs = P.tl.segs, i = P.i, wasRun = P.run;
+      P.run = P.sync.state === 'run';
+      if (wasRun !== P.run) { if (P.run) wakeOn(); paintCtl(); paintClock(true); }
+      if (pos < 0) { P.counting = true; paintCountdown(-pos); return; }
+      if (P.counting) { P.counting = false; P.cd = null; P.i = 0; P.el = Math.max(0, pos); paintSeg(true); return; }
+      if (pos >= P.tl.total) { finish(false); return; }
+      while (i < segs.length - 1 && pos >= segs[i].at + segs[i].dur) i++;
+      while (i > 0 && pos < segs[i].at) i--;
+      if (P.run && dt > 0 && dt < 5) P.active += dt;
+      jumped = i !== P.i ? 1 : 0;
+      P.i = i; P.el = pos - segs[i].at; g = segs[i];
+      if (!P.run) { if (jumped) paintSeg(false); else paintClock(false); return; }
+    } else {
+      if (!P.run || dt <= 0) return;
+      P.el += dt; P.active += dt;
       g = P.tl.segs[P.i];
+      while (P.el >= g.dur) {
+        P.el -= g.dur;
+        if (P.i >= P.tl.segs.length - 1) { finish(false); return; }
+        P.i++; jumped++;
+        g = P.tl.segs[P.i];
+      }
     }
     var tgt = g.t === 'work' && g.fin ? 0.35 + 0.65 * Math.pow(Math.min(1, P.el / g.dur), 1.5) : 0;
     P.heat = tgt > P.heat ? tgt : Math.max(tgt, P.heat - dt * 0.7);
@@ -780,7 +805,7 @@
 
     var rem = g.dur - P.el, c = Math.ceil(rem);
     if (c <= 3 && c >= 1 && P.fired.c !== c && g.dur >= 5) { P.fired.c = c; SND.tick(); }
-    var ex = EX[g.ex];
+    var ex = EX[myEx(g)];
     if (ex && ex.sides && (g.t === 'work' || g.t === 'warm' || g.t === 'stretch') && g.dur >= 30 && !P.fired.half && P.el >= g.dur / 2) {
       P.fired.half = 1; SND.half(); buzz([90, 60, 90]); coachSay('side');
       var cu = $('#p-cue'); if (cu) cu.textContent = 'Change de côté.';
@@ -793,11 +818,19 @@
       if (ci !== P.cueI && !(ex.sides && P.fired.half && P.el < g.dur / 2 + 5)) { P.cueI = ci; paintCue(); }
     }
     paintClock(false);
-    if (now - P.saveAt > 4000) { P.saveAt = now; db.live = { sid: P.s.id, i: P.i, el: P.el, active: P.active, ts: now }; save(); }
+    if (!P.sync && now - P.saveAt > 4000) { P.saveAt = now; db.live = { sid: P.s.id, i: P.i, el: P.el, active: P.active, ts: now }; save(); }
   }
-
   function jump(dir) {
     if (!P || P.done) return;
+    if (P.sync) {
+      // saut appliqué à tout le salon
+      var segs = P.tl.segs, ji = P.i;
+      if (dir < 0) { if (!(P.el > 3 || ji === 0)) ji--; }
+      else { if (ji >= segs.length - 1) { finish(false); return; } ji++; }
+      var np = segs[ji].at + 0.01;
+      syncSet(P.sync.state === 'run' ? { t0: serverNow() - np * 1000 } : { pausePos: np });
+      tick(); return;
+    }
     if (dir < 0) { if (P.el > 3 || P.i === 0) P.el = 0; else { P.i--; P.el = 0; } }
     else { if (P.i >= P.tl.segs.length - 1) { finish(false); return; } P.i++; P.el = 0; }
     P.last = Date.now();
@@ -805,11 +838,19 @@
   }
   function toggleRun() {
     if (!P || P.done) return;
+    if (P.sync) {
+      // pause et reprise pour tout le salon
+      var pp = Math.max(0, syncPos());
+      if (P.sync.state === 'run') { syncSet({ state: 'pause', pausePos: pp }); try { window.speechSynthesis.cancel(); } catch (e) { /* rien */ } }
+      else { audio(); syncSet({ state: 'run', t0: serverNow() - pp * 1000 }); }
+      P.last = Date.now(); tick(); paintCtl(); return;
+    }
     P.run = !P.run; P.last = Date.now();
     if (P.run) { audio(); wakeOn(); } else { wakeOff(); try { window.speechSynthesis.cancel(); } catch (e) { /* rien */ } }
     paintCtl(); paintClock(true);
   }
   function quitPlayer() {
+    roomClose();
     clearInterval(timer); wakeOff();
     try { window.speechSynthesis.cancel(); } catch (e) { /* rien */ }
     P = null; db.live = null; save();
@@ -819,7 +860,7 @@
     render();
   }
   function askQuit() {
-    var was = P.run;
+    var was = P.run && !P.sync;
     if (was) toggleRun();
     var mainDone = P.tl.segs[P.i].at + P.el;
     ask('Arrêter la séance ?', fmt(mainDone) + ' écoulées sur ' + fmt(P.tl.main) + '.', [
@@ -847,6 +888,7 @@
   function finish(partial) {
     if (!P) return;
     P.done = true; P.run = false;
+    roomClose();
     clearInterval(timer); wakeOff();
     var s = P.s, tl = P.tl, pos = tl.segs[P.i].at + P.el;
     var isPartial = partial && pos < tl.main - 1;
@@ -1585,8 +1627,9 @@
           f.auth().onAuthStateChanged(function (u) {
             cloud.user = u;
             cloud.state = u ? 'in' : 'out';
-            if (u) { db.settings.cloud = true; storeQuiet(); cloudPull(); }
+            if (u) { db.settings.cloud = true; storeQuiet(); cloudPull(); socialStart(); } else socialStop();
             repaintAccount();
+            tryPending();
           });
           return f;
         });
@@ -1834,7 +1877,7 @@
   }
   function swapOrig(bi, cur) { var map = P.swap[bi] || {}, k; for (k in map) if (map[k] === cur) return k; return cur; }
   function swapOptions(g) {
-    var cur = g.ex, orig = swapOrig(g.bi, cur), inBlock = {}, seen = {}, out;
+    var cur = myEx(g), orig = swapOrig(g.bi, cur), inBlock = {}, seen = {}, out;
     P.tl.segs.forEach(function (x) { if (x.t === 'work' && x.bi === g.bi) inBlock[x.ex] = 1; });
     out = [orig].concat(EX[orig].alts || [], POOL, SAFE).filter(function (id) {
       if (!EX[id] || seen[id]) return false;
@@ -1848,11 +1891,12 @@
   function swapNow() {
     var g = P.tl.segs[P.i];
     if (!canSwap(g)) return;
-    var opts = swapOptions(g), cur = g.ex, next = opts[(opts.indexOf(cur) + 1) % opts.length], bi = g.bi, orig;
+    var opts = swapOptions(g), cur = myEx(g), next = opts[(opts.indexOf(cur) + 1) % opts.length], bi = g.bi, orig;
     if (!next || next === cur) { toast('Pas d’autre mouvement possible avec ton matériel'); return; }
     orig = swapOrig(bi, cur);
     P.tl.segs.forEach(function (x) { if (x.bi === bi && x.ex === cur && x.t !== 'warm' && x.t !== 'stretch') x.ex = next; });
     (P.swap[bi] = P.swap[bi] || {})[orig] = next;
+    if (P.sync) syncSet({ exs: P.tl.segs.map(function (x) { return x.ex; }) });
     P.cueI = 0;
     paintSeg(false);
     buzz(60);
@@ -1875,19 +1919,19 @@
       '<div class="seg" role="radiogroup" aria-label="Nombre de personnes">' + [[1, 'Solo'], [2, 'Duo'], [3, 'Trio']].map(function (o) {
         return '<button role="radio" aria-checked="' + (n === o[0] ? 'true' : 'false') + '" data-team="' + o[0] + '">' + o[1] + '</button>';
       }).join('') + '</div>' + h +
-      '<p class="hint">' + (n > 1 ? 'Chacun démarre sur un exercice différent du groupe et tourne au changement d’exercice. Dans les blocs à un seul exercice, vous alternez les tours. L’écran indique à chacun ce qu’il fait.' :
-        'À deux ou trois, chacun démarre sur un exercice différent du groupe pour ne pas se gêner sur le matériel.') + '</p></section>';
+      '<p class="hint">' + (n > 1 ? 'Sur un seul téléphone : chacun démarre sur un exercice différent du groupe et tourne au changement d’exercice. Dans les blocs à un seul exercice, vous alternez les tours.' :
+        'À deux ou trois sur un seul téléphone, chacun démarre sur un exercice différent du groupe pour ne pas se gêner sur le matériel.') + '</p>' + syncBox() + '</section>';
   }
   // exercice de chacun pour une étape d'effort (ou la prochaine, pendant un repos)
   function teamPlan(g) {
-    var n = P.team, names = mateNames(), w = g.t === 'work' ? g : (g.nx != null && g.nx >= 0 ? P.tl.segs[g.nx] : null);
+    var n = P.team, names = P.names || mateNames(), w = g.t === 'work' ? g : (g.nx != null && g.nx >= 0 ? P.tl.segs[g.nx] : null);
     if (n < 2 || !w || w.t !== 'work') return null;
     var list = P.tl.segs.filter(function (x) { return x.t === 'work' && x.bi === w.bi && x.round === w.round; })
       .sort(function (a, b) { return a.n - b.n; }).map(function (x) { return x.ex; });
     var N = list.length, out = [], p, k, slots = Math.max(N, n), filler = canDo('plank') ? 'plank' : 'dead_bug';
     for (p = 0; p < n; p++) {
-      if (N === 1) out.push({ name: names[p], ex: list[0], rest: (w.round - 1) % n !== p, me: p === 0 });
-      else { k = (w.n - 1 + p) % slots; out.push({ name: names[p], ex: k < N ? list[k] : filler, rest: false, me: p === 0 }); }
+      if (N === 1) out.push({ name: names[p], ex: list[0], rest: (w.round - 1) % n !== p, me: p === (P.me || 0) });
+      else { k = (w.n - 1 + p) % slots; out.push({ name: names[p], ex: k < N ? list[k] : filler, rest: false, me: p === (P.me || 0) }); }
     }
     return out;
   }
@@ -1901,6 +1945,425 @@
     }).join('');
   }
 
+  // ------------------------------------------------------------------ amis et séances synchronisées sur plusieurs téléphones
+  // Un « salon » (rooms/{code}) porte la séance, l'ordre des participants, les exercices et l'horloge commune :
+  // position = (heure serveur − t0) quand ça tourne, pausePos à l'arrêt. Chaque téléphone en déduit l'étape en cours.
+  // Sur le serveur local, ?mock=1&name=X simule le salon entre deux onglets (sans compte), pour les tests.
+  var MOCK = location.hostname === 'localhost' && /[?&]mock=1/.test(location.search);
+  var mockId = '', mockName = '';
+  if (MOCK) {
+    try { mockId = sessionStorage.getItem('p27uid') || ''; } catch (e) { /* rien */ }
+    if (!mockId) mockId = 'u' + Math.random().toString(36).slice(2, 8);
+    try { sessionStorage.setItem('p27uid', mockId); } catch (e) { /* rien */ }
+    mockName = new URLSearchParams(location.search).get('name') || 'Testeur';
+  }
+  var ALPH = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  function rcode(n) { var s = ''; for (var i = 0; i < n; i++) s += ALPH.charAt(Math.floor(Math.random() * ALPH.length)); return s; }
+  function cleanCode(v) { return String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^PRIME/, ''); }
+  var social = { name: '', code: '', friends: [], invites: [], unsubs: [], offset: 0, sent: {} };
+  var ROOM = null, pendingJoin = null, pendingFriend = null;
+  function uid() { return MOCK ? mockId : (cloud.user ? cloud.user.uid : ''); }
+  function myName() {
+    if (MOCK) return mockName;
+    return (social.name || (cloud.user && (cloud.user.displayName || (cloud.user.email || '').split('@')[0])) || 'Moi').slice(0, 16);
+  }
+  function online() { return MOCK || (cloud.state === 'in' && !!cloud.user); }
+  function requireCloud(fn) {
+    if (online()) { fn(); return; }
+    toast('Connecte-toi d’abord (Réglages, Compte) pour jouer sur plusieurs téléphones');
+    go('settings');
+  }
+  function serverNow() { return Date.now() + (MOCK ? 0 : social.offset); }
+  function shareUrl(hash) { return location.origin + location.pathname + '#' + hash; }
+  function primeAudio() {
+    audio();
+    try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* rien */ }
+  }
+
+  // ----- accès aux salons (Firestore, ou simulation entre onglets)
+  var DEL = { del: 1 };
+  var mockL = {};
+  function mockKey(id) { return 'p27mock.room.' + id; }
+  function mockGet(id) { try { var v = localStorage.getItem(mockKey(id)); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function mockPut(id, d) {
+    try { if (d) localStorage.setItem(mockKey(id), JSON.stringify(d)); else localStorage.removeItem(mockKey(id)); } catch (e) { /* rien */ }
+    (mockL[id] || []).forEach(function (cb) { setTimeout(function () { cb(d ? JSON.parse(JSON.stringify(d)) : null); }, 0); });
+  }
+  if (MOCK) window.addEventListener('storage', function (e) {
+    if (!e.key || e.key.indexOf('p27mock.room.') !== 0) return;
+    var id = e.key.slice(13), d = e.newValue ? JSON.parse(e.newValue) : null;
+    (mockL[id] || []).forEach(function (cb) { cb(d); });
+  });
+  function applyPatch(d, patch) {
+    for (var k in patch) {
+      var parts = k.split('.'), o = d, i;
+      for (i = 0; i < parts.length - 1; i++) o = o[parts[i]] = o[parts[i]] || {};
+      if (patch[k] === DEL) delete o[parts[i]]; else o[parts[i]] = patch[k];
+    }
+  }
+  function roomRef(id) { return window.firebase.firestore().collection('rooms').doc(id); }
+  var Rooms = {
+    get: function (id) {
+      if (MOCK) return Promise.resolve(mockGet(id));
+      return roomRef(id).get().then(function (s) { return s.exists ? s.data() : null; });
+    },
+    create: function (id, d) {
+      if (MOCK) { mockPut(id, d); return Promise.resolve(); }
+      d.at = window.firebase.firestore.FieldValue.serverTimestamp();
+      return roomRef(id).set(d);
+    },
+    update: function (id, patch) {
+      if (MOCK) { var d = mockGet(id); if (!d) return Promise.reject(new Error('absent')); applyPatch(d, patch); mockPut(id, d); return Promise.resolve(); }
+      var p = {}, k;
+      for (k in patch) p[k] = patch[k] === DEL ? window.firebase.firestore.FieldValue.delete() : patch[k];
+      return roomRef(id).update(p);
+    },
+    remove: function (id) {
+      if (MOCK) { mockPut(id, null); return Promise.resolve(); }
+      return roomRef(id).delete();
+    },
+    listen: function (id, cb) {
+      if (MOCK) {
+        (mockL[id] = mockL[id] || []).push(cb);
+        setTimeout(function () { cb(mockGet(id)); }, 0);
+        return function () { mockL[id] = (mockL[id] || []).filter(function (x) { return x !== cb; }); };
+      }
+      return roomRef(id).onSnapshot(function (s) { cb(s.exists ? s.data() : null); }, function () { /* hors ligne : on garde l'horloge locale */ });
+    },
+    // ajoute le participant s'il reste de la place (3 personnes au plus)
+    join: function (id, member) {
+      var me = uid();
+      function add(d) {
+        if (!d) throw new Error('absent');
+        var mem = d.members || {};
+        if (mem[me]) return { d: d, patch: null };
+        if (Object.keys(mem).length >= 3) throw new Error('plein');
+        var patch = {}, order = Object.keys(mem).reduce(function (m, k) { return Math.max(m, (mem[k].order || 0) + 1); }, 0);
+        patch['members.' + me] = { name: member.name, order: order };
+        return { d: d, patch: patch };
+      }
+      if (MOCK) {
+        try { var r = add(mockGet(id)); if (r.patch) { applyPatch(r.d, r.patch); mockPut(id, r.d); } return Promise.resolve(r.d); }
+        catch (e) { return Promise.reject(e); }
+      }
+      var fs = window.firebase.firestore(), ref = roomRef(id);
+      return fs.runTransaction(function (tx) {
+        return tx.get(ref).then(function (snap) {
+          var r = add(snap.exists ? snap.data() : null);
+          if (r.patch) tx.update(ref, r.patch);
+          return r.d;
+        });
+      });
+    }
+  };
+  // écart entre l'horloge du téléphone et celle du serveur, pour un départ simultané
+  function clockSync(id) {
+    if (MOCK || !cloud.user) return Promise.resolve();
+    var ref = roomRef(id), p = {}, t1 = Date.now();
+    p['pings.' + cloud.user.uid] = window.firebase.firestore.FieldValue.serverTimestamp();
+    return ref.update(p).then(function () {
+      var t2 = Date.now();
+      return ref.get({ source: 'server' }).then(function (snap) {
+        var ts = ((snap.data() || {}).pings || {})[cloud.user.uid];
+        if (ts && ts.toMillis) social.offset = ts.toMillis() - (t1 + t2) / 2;
+      });
+    }).catch(function () { /* on garde l'horloge du téléphone */ });
+  }
+  function members(d) {
+    var m = (d && d.members) || {};
+    return Object.keys(m).map(function (k) { return { uid: k, name: m[k].name || 'Ami', order: m[k].order || 0 }; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+
+  // ----- salon : création, adhésion, attente du départ
+  function createRoom(s) {
+    requireCloud(function () {
+      primeAudio();
+      var tries = 0;
+      (function attempt() {
+        var id = rcode(5);
+        Rooms.get(id).then(function (d) {
+          if (d && tries++ < 4) return attempt();
+          var data = { host: uid(), sid: s.id, sname: s.name, state: 'lobby', t0: 0, pausePos: 0, exs: timeline(s).segs.map(function (x) { return x.ex; }), members: {}, v: 1 };
+          data.members[uid()] = { name: myName(), order: 0 };
+          return Rooms.create(id, data).then(function () { roomOpen(id); clockSync(id); });
+        }).catch(function () { toast('Création impossible : vérifie le réseau'); });
+      })();
+    });
+  }
+  function joinRoom(raw) {
+    var id = cleanCode(raw);
+    if (id.length !== 5) { toast('Un code de salon fait 5 caractères'); return; }
+    requireCloud(function () {
+      primeAudio();
+      Rooms.join(id, { name: myName() }).then(function () {
+        closeSheet();
+        if (!MOCK) window.firebase.firestore().collection('users').doc(uid()).collection('invites').doc(id).delete().catch(function () { /* rien */ });
+        clockSync(id).then(function () { roomOpen(id); });
+      }).catch(function (e) {
+        toast(e && e.message === 'plein' ? 'Ce salon est complet (3 personnes au plus)' : e && e.message === 'absent' ? 'Salon introuvable : vérifie le code' : 'Impossible de rejoindre : vérifie le réseau');
+      });
+    });
+  }
+  function roomOpen(id) {
+    roomClose();
+    ROOM = { id: id, data: null };
+    showLobby();
+    ROOM.unsub = Rooms.listen(id, roomUpdate);
+  }
+  function roomClose() {
+    if (ROOM && ROOM.unsub) { try { ROOM.unsub(); } catch (e) { /* rien */ } }
+    ROOM = null;
+  }
+  function roomUpdate(d) {
+    if (!ROOM) return;
+    if (!d) {
+      var playing = P && P.sync;
+      roomClose();
+      if (playing) { P.sync = null; toast('Le salon est fermé : tu continues seul'); }
+      else { closeLobby(); toast('Le salon a été fermé'); }
+      return;
+    }
+    ROOM.data = d;
+    if (P && P.sync && P.sync.id === ROOM.id) { if (!P.done) applyRoomData(d); return; }
+    if (d.state === 'lobby') paintLobby();
+    else if (!P) startSynced();
+  }
+  function startSynced() {
+    var d = ROOM.data, s = findSession(d.sid);
+    if (!s) { toast('Séance inconnue : mets l’appli à jour'); return; }
+    startSession(s, null, { id: ROOM.id, data: d });
+  }
+  function showLobby() {
+    overlay.innerHTML = '<div class="player lobby" id="lobby"><header class="p-top">' +
+      '<button class="ic" data-l="leave" aria-label="Quitter le salon">' + I.close + '</button>' +
+      '<div class="p-where"><b>Séance à plusieurs</b><span id="l-sname">Connexion au salon…</span></div></header>' +
+      '<div class="l-body" id="l-body"><p class="hint">Connexion au salon…</p></div></div>';
+    overlay.classList.add('on');
+    document.documentElement.classList.add('locked');
+  }
+  function closeLobby() {
+    if (P) return;
+    overlay.classList.remove('on'); overlay.innerHTML = '';
+    document.documentElement.classList.remove('locked');
+    render();
+  }
+  function paintLobby() {
+    var body = document.getElementById('l-body');
+    if (!body || !ROOM || !ROOM.data) return;
+    var d = ROOM.data, me = uid(), host = d.host === me, mem = members(d), s = findSession(d.sid), inRoom = {};
+    mem.forEach(function (m) { inRoom[m.uid] = 1; });
+    var sn = document.getElementById('l-sname');
+    if (sn) sn.textContent = (s ? s.name : d.sname || '') + (s ? ' · ' + TYPE[s.type] : '');
+    var friends = social.friends.filter(function (f) { return !inRoom[f.uid]; });
+    body.innerHTML =
+      '<section class="l-code"><span class="h2">Code du salon</span><b class="disp">' + esc(ROOM.id) + '</b>' +
+        '<div class="btnrow"><button class="btn sm" data-l="share">' + I.share + 'Inviter par message</button></div></section>' +
+      (friends.length ? '<section><h2 class="h2">Inviter un ami</h2><ul class="kv">' + friends.map(function (f) {
+        var sent = social.sent[ROOM.id + ':' + f.uid];
+        return '<li><span>' + esc(f.name) + '</span><button class="btn sm' + (sent ? ' ghost' : '') + '" data-l-invite="' + f.uid + '"' + (sent ? ' disabled' : '') + '>' + (sent ? 'Invité' : 'Inviter') + '</button></li>';
+      }).join('') + '</ul></section>' : '') +
+      '<section><h2 class="h2">Participants · ' + mem.length + ' sur 3</h2><ul class="l-mem">' + mem.map(function (m, k) {
+        return '<li' + (m.uid === me ? ' class="me"' : '') + '><i>' + (k + 1) + '</i><span>' + esc(m.uid === me ? m.name + ' (toi)' : m.name) + '</span>' + (m.uid === d.host ? '<small>organise</small>' : '') + '</li>';
+      }).join('') + '</ul></section>' +
+      '<p class="hint">Le départ est donné en même temps sur chaque téléphone, avec un décompte. Ensuite, chacun voit son exercice, et une pause ou un saut d’exercice s’applique à tout le monde.</p>' +
+      (host ? '<button class="btn go s-cardio" data-l="start"' + (mem.length < 2 ? ' disabled' : '') + '>' + I.play + (mem.length < 2 ? 'En attente d’un partenaire' : 'Démarrer pour tous') + '</button>' :
+        '<p class="l-wait">En attente du départ donné par ' + esc((mem[0] || {}).name || 'l’organisateur') + '…</p>');
+  }
+  function lobbyAct(a, el) {
+    if (!ROOM) return;
+    var d = ROOM.data || {};
+    if (a === 'leave') {
+      var id = ROOM.id, host = d.host === uid(), p = {};
+      roomClose(); closeLobby();
+      if (host && d.state === 'lobby') Rooms.remove(id).catch(function () { /* rien */ });
+      else { p['members.' + uid()] = DEL; Rooms.update(id, p).catch(function () { /* rien */ }); }
+    } else if (a === 'share') {
+      var url = shareUrl('salon-' + ROOM.id), text = 'Rejoins ma séance ' + (d.sname || '') + ' sur PRIME27 : code ' + ROOM.id;
+      if (navigator.share) navigator.share({ title: 'PRIME27', text: text, url: url }).catch(function () { /* annulé */ });
+      else if (navigator.clipboard) navigator.clipboard.writeText(text + ' ' + url).then(function () { toast('Lien copié'); }, function () { toast(url); });
+      else toast(url);
+    } else if (a === 'start') {
+      if (members(d).length < 2) return;
+      primeAudio();
+      Rooms.update(ROOM.id, { state: 'run', t0: serverNow() + 4000, pausePos: 0 }).catch(function () { toast('Départ impossible : vérifie le réseau'); });
+    } else if (a === 'invite') {
+      var fid = el.getAttribute('data-l-invite'), fs = window.firebase.firestore();
+      fs.collection('users').doc(fid).collection('invites').doc(ROOM.id).set({
+        from: uid(), fromName: myName(), room: ROOM.id, sid: d.sid, sname: d.sname || '', at: window.firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function () { social.sent[ROOM.id + ':' + fid] = 1; paintLobby(); toast('Invitation envoyée'); }, function () { toast('Invitation impossible : vérifie le réseau'); });
+    }
+  }
+
+  // ----- lecteur synchronisé
+  function syncPos() { var s = P.sync; return s.state === 'run' ? (serverNow() - s.t0) / 1000 : (s.pausePos || 0); }
+  function syncSet(patch) {
+    if (!P || !P.sync) return;
+    for (var k in patch) P.sync[k] = patch[k];
+    Rooms.update(P.sync.id, patch).catch(function () { toast('Réseau instable : la commande n’est pas partie'); });
+  }
+  function applyRoomData(d, initial) {
+    if (!P || !P.sync || !d) return;
+    P.sync.state = d.state; P.sync.t0 = d.t0 || 0; P.sync.pausePos = d.pausePos || 0;
+    var mem = members(d), idx = -1, k, before = P.names ? P.names.join('|') : '', changed = false;
+    for (k = 0; k < mem.length; k++) if (mem[k].uid === uid()) idx = k;
+    P.team = Math.max(1, mem.length); P.me = Math.max(0, idx);
+    P.names = mem.map(function (m, j) { return j === P.me ? 'Toi' : m.name; });
+    if (d.exs && d.exs.length === P.tl.segs.length) P.tl.segs.forEach(function (x, j) { if (d.exs[j] && EX[d.exs[j]] && x.ex !== d.exs[j]) { x.ex = d.exs[j]; changed = true; } });
+    if (!initial && (changed || before !== P.names.join('|')) && !P.counting) paintSeg(false);
+  }
+  function paintCountdown(sec) {
+    var c = Math.ceil(sec);
+    if (P.cd === c) return;
+    P.cd = c;
+    $('#p-digits').innerHTML = '<span>' + c + '</span>';
+    $('#p-phase').textContent = 'Départ synchronisé';
+    $('#p-name').textContent = c > 3 ? 'Prêts ?' : 'Partez dans ' + c;
+    $('#p-cue').textContent = 'Tout le monde démarre en même temps.';
+    if (c <= 3) { SND.tick(); buzz(60); }
+  }
+
+  // ----- amis
+  function socialStart() {
+    if (MOCK || !cloud.user) return;
+    var fs = window.firebase.firestore(), u = cloud.user;
+    socialStop();
+    fs.collection('profiles').doc(u.uid).get().then(function (snap) {
+      var p = snap.exists ? snap.data() : {};
+      social.name = (p.name || u.displayName || (u.email || '').split('@')[0] || 'Moi').slice(0, 16);
+      if (p.code) { social.code = p.code; repaintAccount(); tryPending(); return; }
+      return newCode(0);
+    }).catch(function () { /* hors ligne */ });
+    social.unsubs.push(fs.collection('users').doc(u.uid).collection('friends').onSnapshot(function (qs) {
+      social.friends = qs.docs.map(function (x) { var f = x.data(); f.uid = x.id; return f; })
+        .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      repaintAccount(); paintLobby();
+    }, function () { /* rien */ }));
+    social.unsubs.push(fs.collection('users').doc(u.uid).collection('invites').onSnapshot(function (qs) {
+      var now = Date.now();
+      social.invites = qs.docs.map(function (x) { var v = x.data(); v.id = x.id; v.ms = v.at && v.at.toMillis ? v.at.toMillis() : now; return v; })
+        .filter(function (v) { return now - v.ms < 6 * 3600e3; }).sort(function (a, b) { return b.ms - a.ms; });
+      if (social.invites.length && route.name === 'home' && !P && !ROOM) { buzz(80); }
+      repaintAccount();
+    }, function () { /* rien */ }));
+  }
+  function socialStop() {
+    social.unsubs.forEach(function (f) { try { f(); } catch (e) { /* rien */ } });
+    social.unsubs = []; social.friends = []; social.invites = []; social.code = '';
+  }
+  function newCode(tries) {
+    var fs = window.firebase.firestore(), u = cloud.user, c = rcode(6);
+    return fs.collection('codes').doc(c).get().then(function (s) {
+      if (s.exists) { if (tries < 4) return newCode(tries + 1); throw new Error('code'); }
+      return fs.collection('codes').doc(c).set({ uid: u.uid, name: social.name })
+        .then(function () { return fs.collection('profiles').doc(u.uid).set({ name: social.name, code: c }); })
+        .then(function () { social.code = c; repaintAccount(); tryPending(); });
+    });
+  }
+  function setPseudo(v) {
+    v = String(v || '').trim().slice(0, 16);
+    if (!v || !cloud.user || v === social.name) return;
+    social.name = v;
+    var fs = window.firebase.firestore();
+    fs.collection('profiles').doc(cloud.user.uid).set({ name: v, code: social.code }, { merge: true }).catch(function () { /* rien */ });
+    if (social.code) fs.collection('codes').doc(social.code).set({ uid: cloud.user.uid, name: v }).catch(function () { /* rien */ });
+    toast('Pseudo enregistré');
+  }
+  function addFriend(raw) {
+    var c = cleanCode(raw);
+    if (c.length !== 6) { toast('Un code ami fait 6 caractères'); return; }
+    if (!cloud.user) { requireCloud(function () { /* rien */ }); return; }
+    var fs = window.firebase.firestore(), u = cloud.user;
+    fs.collection('codes').doc(c).get().then(function (s) {
+      if (!s.exists) { toast('Code inconnu : vérifie-le avec ton ami'); return; }
+      var f = s.data();
+      if (f.uid === u.uid) { toast('C’est ton propre code'); return; }
+      var b = fs.batch(), ts = window.firebase.firestore.FieldValue.serverTimestamp();
+      b.set(fs.collection('users').doc(u.uid).collection('friends').doc(f.uid), { name: f.name || 'Ami', code: c, at: ts });
+      b.set(fs.collection('users').doc(f.uid).collection('friends').doc(u.uid), { name: social.name || myName(), code: social.code, at: ts });
+      return b.commit().then(function () { toast((f.name || 'Ton ami') + ' fait partie de tes amis'); var i = document.getElementById('addf-code'); if (i) i.value = ''; });
+    }).catch(function () { toast('Ajout impossible : vérifie le réseau'); });
+  }
+  function removeFriend(fid) {
+    var f = social.friends.filter(function (x) { return x.uid === fid; })[0];
+    ask('Retirer ' + (f ? f.name : 'cet ami') + ' ?', 'Vous ne pourrez plus vous inviter directement. Vous pourrez vous rajouter avec vos codes.', [
+      { label: 'Retirer', cls: 'danger', fn: function () {
+        var fs = window.firebase.firestore(), b = fs.batch();
+        b.delete(fs.collection('users').doc(cloud.user.uid).collection('friends').doc(fid));
+        b.delete(fs.collection('users').doc(fid).collection('friends').doc(cloud.user.uid));
+        b.commit().catch(function () { toast('Impossible pour le moment : vérifie le réseau'); });
+      } },
+      { label: 'Annuler', cls: 'ghost' }
+    ]);
+  }
+  function shareCode() {
+    if (!social.code) return;
+    var url = shareUrl('ami-' + social.code), text = 'Ajoute-moi sur PRIME27 pour s’entraîner ensemble : mon code ami est ' + social.code;
+    if (navigator.share) navigator.share({ title: 'PRIME27', text: text, url: url }).catch(function () { /* annulé */ });
+    else if (navigator.clipboard) navigator.clipboard.writeText(text + ' ' + url).then(function () { toast('Code copié'); }, function () { toast(social.code); });
+    else toast(social.code);
+  }
+  function friendsSection() {
+    if (MOCK || onClaude || cloud.state !== 'in') return '';
+    return '<section><h2 class="h2">Amis</h2>' +
+      '<div class="field inline"><label for="set-pseudo">Ton pseudo</label><input type="text" id="set-pseudo" data-pseudo maxlength="16" autocomplete="nickname" value="' + esc(social.name) + '"></div>' +
+      '<div class="acct"><span class="fcode disp">' + esc(social.code || '······') + '</span><span><b>Ton code ami</b><small>Partage-le : tes amis t’ajoutent en un geste, puis vous vous invitez à une séance.</small></span></div>' +
+      '<div class="btnrow"><button class="btn sm" data-act="sharecode"' + (social.code ? '' : ' disabled') + '>' + I.share + 'Partager mon code</button></div>' +
+      '<form class="addf" id="addf"><input type="text" id="addf-code" maxlength="12" autocomplete="off" autocapitalize="characters" aria-label="Code ami" placeholder="Code de ton ami"><button class="btn sm" type="submit">Ajouter</button></form>' +
+      (social.friends.length ? '<ul class="kv">' + social.friends.map(function (f) {
+        return '<li><span>' + esc(f.name) + '<small>' + esc(f.code || '') + '</small></span><button class="link" data-unfriend="' + esc(f.uid) + '">Retirer</button></li>';
+      }).join('') + '</ul>' : '<p class="empty">Pas encore d’amis : partage ton code.</p>') + '</section>';
+  }
+  function inviteBanner() {
+    var iv = social.invites[0];
+    if (!iv) return '';
+    return '<section class="invite s-defi"><p><b>' + esc(iv.fromName || 'Un ami') + '</b> t’invite pour <b>' + esc(iv.sname || 'une séance') + '</b></p>' +
+      '<div class="btnrow"><button class="btn sm go" data-room-join="' + esc(iv.room) + '">Rejoindre</button><button class="btn sm ghost" data-invite-del="' + esc(iv.id) + '">Ignorer</button></div></section>';
+  }
+  function syncBox() {
+    return '<div class="syncbox"><p><b>Un téléphone chacun ?</b> Lancez une séance synchronisée : même départ, même minuteur, et chacun voit son exercice.</p>' +
+      (online() ? '<div class="btnrow"><button class="btn sm" data-act="room-create">Créer un salon</button><button class="btn sm ghost" data-act="room-join">Rejoindre avec un code</button></div>' :
+        (onClaude ? '<p class="hint">Disponible dans la version installée de l’appli (b0z98.github.io/prime27).</p>' : '<p class="hint">Connecte-toi dans Réglages pour l’utiliser.</p>')) + '</div>';
+  }
+  function openJoin() {
+    sheet.innerHTML = '<div class="sheet-bg" data-sheet="close"></div><div class="sheet-p" role="dialog" aria-modal="true" aria-label="Rejoindre un salon">' +
+      '<button class="ic sheet-x alt" data-sheet="close" aria-label="Fermer">' + I.close + '</button>' +
+      '<h2 class="disp sheet-n">Rejoindre</h2><p class="hint">Entre le code du salon affiché sur le téléphone de ton ami.</p>' +
+      '<form class="addf" id="joinf"><input type="text" id="join-code" maxlength="8" autocomplete="off" autocapitalize="characters" aria-label="Code du salon" placeholder="Code du salon"><button class="btn sm" type="submit">Rejoindre</button></form></div>';
+    sheet.classList.add('on');
+    var i = document.getElementById('join-code'); if (i) i.focus();
+  }
+  // liens partagés : #salon-CODE (rejoindre) et #ami-CODE (s'ajouter en ami)
+  function handleHash() {
+    var h = location.hash.slice(1), m;
+    if ((m = /^salon-([0-9A-Z]{5})$/i.exec(h))) pendingJoin = m[1].toUpperCase();
+    else if ((m = /^ami-([0-9A-Z]{6})$/i.exec(h))) pendingFriend = m[1].toUpperCase();
+    else return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* rien */ }
+    tryPending();
+  }
+  function tryPending() {
+    if (pendingJoin) {
+      if (online()) { var j = pendingJoin; pendingJoin = null; joinRoom(j); }
+      else if (cloud.state === 'out' || cloud.state === 'off') { toast('Connecte-toi pour rejoindre le salon'); go('settings'); }
+    }
+    if (pendingFriend && cloud.state === 'in' && social.code) { var c = pendingFriend; pendingFriend = null; addFriend(c); }
+    else if (pendingFriend && (cloud.state === 'out' || cloud.state === 'off')) { toast('Connecte-toi pour ajouter ton ami'); go('settings'); }
+  }
+  window.addEventListener('hashchange', handleHash);
+
+  // exercice affiché sur ce téléphone (à plusieurs, chacun a le sien)
+  function myEx(g) {
+    if (!P || P.team < 2 || !P.me) return g.ex;
+    var plan = teamPlan(g);
+    return plan && plan[P.me] ? plan[P.me].ex : g.ex;
+  }
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f.id === 'addf') { e.preventDefault(); addFriend((document.getElementById('addf-code') || {}).value); }
+    else if (f.id === 'joinf') { e.preventDefault(); joinRoom((document.getElementById('join-code') || {}).value); }
+  });
+
   // ------------------------------------------------------------------ interactions
   document.addEventListener('click', function (e) {
     var t = e.target.closest('button,[data-sheet]');
@@ -1912,6 +2375,16 @@
       if (inp) inp.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
+    if (t.hasAttribute('data-l')) { lobbyAct(t.getAttribute('data-l'), t); return; }
+    if (t.hasAttribute('data-l-invite')) { lobbyAct('invite', t); return; }
+    if (t.hasAttribute('data-room-join')) { joinRoom(t.getAttribute('data-room-join')); return; }
+    if (t.hasAttribute('data-invite-del')) {
+      var ivd = t.getAttribute('data-invite-del');
+      if (!MOCK && cloud.user) window.firebase.firestore().collection('users').doc(cloud.user.uid).collection('invites').doc(ivd).delete().catch(function () { /* rien */ });
+      social.invites = social.invites.filter(function (v) { return v.id !== ivd; });
+      render(); return;
+    }
+    if (t.hasAttribute('data-unfriend')) { removeFriend(t.getAttribute('data-unfriend')); return; }
     if (t.hasAttribute('data-acc')) { emailAuth(t.getAttribute('data-acc')); return; }
     if (t.hasAttribute('data-pick')) { pick(t.getAttribute('data-pick'), t.getAttribute('data-id')); return; }
     if (t.hasAttribute('data-level')) {
@@ -1950,6 +2423,7 @@
       if (t.getAttribute('data-vol') === 'vBeep') { audio(); SND.go(); } else say('Volume des annonces.');
     }
     if (t.id === 'restore-file') { restoreFile(t.files && t.files[0]); t.value = ''; }
+    if (t.hasAttribute && t.hasAttribute('data-pseudo')) setPseudo(t.value);
     if (t.hasAttribute && t.hasAttribute('data-prof')) { var kv = parseFloat(t.value); if (kv > 0) { db.settings.kg = Math.round(kv); save(); } }
     if (t.id === 'set-voice') { db.settings.voiceName = t.value; save(); say('Voici la voix de ton coach. Prêt ? C’est parti !'); }
     if (t.hasAttribute && t.hasAttribute('data-zone')) setPain(t.getAttribute('data-zone'), t.checked);
@@ -1995,6 +2469,9 @@
   function act(a) {
     if (a === 'equip') openEquip();
     else if (a === 'pain') openPain();
+    else if (a === 'room-create') { var rs = findSession(route.id); if (rs) createRoom(rs); }
+    else if (a === 'room-join') requireCloud(openJoin);
+    else if (a === 'sharecode') shareCode();
     else if (a === 'nopain') { db.settings.pain = null; save(); resetTimelines(); render(); openPain(); }
     else if (a === 'welcome') { db.settings.onboarded = true; save(); closeSheet(); render(); }
     else if (a === 'share') shareApp();
@@ -2035,6 +2512,7 @@
 
   render();
   protectStorage();
+  handleHash();
   if (FIREBASE && !onClaude && db.settings.cloud) { cloud.state = 'loading'; fb().catch(function () { /* hors ligne */ }); }
   if (!db.settings.onboarded && !db.history.length) openWelcome();
   if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude/.test(location.hostname)) {
@@ -2042,6 +2520,6 @@
   }
   // outils de test, uniquement sur le serveur local
   if (location.hostname === 'localhost') {
-    window.__prime = { timeline: timeline, findSession: findSession, db: function () { return db; }, setEquip: setEquip, resetTimelines: resetTimelines, stats: stats, EQUIP: EQUIP, canDo: canDo };
+    window.__prime = { timeline: timeline, findSession: findSession, db: function () { return db; }, setEquip: setEquip, resetTimelines: resetTimelines, stats: stats, EQUIP: EQUIP, canDo: canDo, player: function () { return P; }, room: function () { return ROOM; } };
   }
 })();

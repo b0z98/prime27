@@ -560,3 +560,28 @@ small.warn { color: var(--renfo); }
 .tm.me { border-color: var(--accent); }
 .tm.me b { color: var(--accent); }
 .tm.off { opacity: 0.55; }
+
+/* ---------- salon synchronisé */
+.player.lobby { gap: 14px; }
+.l-body { flex: 1 1 0; min-height: 0; overflow: auto; display: grid; gap: 22px; align-content: start; padding-bottom: 8px; }
+.l-body section { display: grid; gap: 10px; }
+.l-code { justify-items: center; text-align: center; padding: 18px 14px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); }
+.l-code b { font-size: clamp(64px, 20vw, 92px); letter-spacing: 0.12em; line-height: 0.9; color: var(--fg); }
+.l-mem { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.l-mem li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.l-mem li.me { border-color: var(--ok); }
+.l-mem i { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); font: 800 16px/1 var(--display); font-style: normal; }
+.l-mem span { flex: 1; min-width: 0; font-weight: 600; }
+.l-mem small { color: var(--fg-3); font-size: 12px; }
+.l-wait { text-align: center; color: var(--fg-2); padding: 14px; border-radius: 14px; border: 1px dashed var(--line); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.syncbox { display: grid; gap: 10px; padding: 12px 14px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); }
+.syncbox p { font-size: 14px; color: var(--fg-2); }
+.syncbox b { color: var(--fg); }
+
+/* ---------- amis et invitations */
+.fcode { flex: none; font-size: 30px; letter-spacing: 0.1em; color: var(--ok); }
+.addf { display: flex; gap: 8px; }
+.addf input { flex: 1; min-width: 0; font: 600 16px/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.invite { padding: 14px; border-radius: var(--r); border: 1.5px solid var(--accent); background: var(--surface); gap: 10px; }
+.invite p { font-size: 15px; }
