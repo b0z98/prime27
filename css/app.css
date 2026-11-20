@@ -585,3 +585,4 @@ small.warn { color: var(--renfo); }
 .addf input { flex: 1; min-width: 0; font: 600 16px/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg); background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .invite { padding: 14px; border-radius: var(--r); border: 1.5px solid var(--accent); background: var(--surface); gap: 10px; }
 .invite p { font-size: 15px; }
+.pain-g { margin-top: 10px; }

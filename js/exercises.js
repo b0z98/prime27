@@ -820,8 +820,12 @@
 
   // Zones sollicitées, pour écarter un mouvement quand une zone fait mal.
   var ZONES = [
-    { id: 'epaules', n: 'Épaules' }, { id: 'poignets', n: 'Coudes et poignets' }, { id: 'dos', n: 'Bas du dos' },
-    { id: 'hanches', n: 'Hanches' }, { id: 'genoux', n: 'Genoux' }, { id: 'chevilles', n: 'Chevilles' }
+    { id: 'epaules', n: 'Épaules', g: 'art' }, { id: 'poignets', n: 'Coudes et poignets', g: 'art' }, { id: 'dos', n: 'Bas du dos', g: 'art' },
+    { id: 'hanches', n: 'Hanches', g: 'art' }, { id: 'genoux', n: 'Genoux', g: 'art' }, { id: 'chevilles', n: 'Chevilles', g: 'art' },
+    { id: 'nuque', n: 'Nuque et trapèzes', g: 'mus' }, { id: 'pecs', n: 'Pectoraux', g: 'mus' }, { id: 'hautdos', n: 'Haut du dos', g: 'mus' },
+    { id: 'bras', n: 'Biceps et triceps', g: 'mus' }, { id: 'abdos', n: 'Abdominaux', g: 'mus' }, { id: 'fessiers', n: 'Fessiers', g: 'mus' },
+    { id: 'quadri', n: 'Quadriceps', g: 'mus' }, { id: 'ischios', n: 'Ischio-jambiers', g: 'mus' }, { id: 'adduct', n: 'Adducteurs', g: 'mus' },
+    { id: 'mollets', n: 'Mollets', g: 'mus' }
   ];
   var Z = {
     row: 'dos', ski: 'epaules dos', bike: '',
@@ -839,7 +843,24 @@
     arm_circles: 'epaules', air_squat: 'genoux', inchworm: 'poignets dos', lunge_twist: 'genoux hanches',
     st_fold: 'dos', st_quad: 'genoux', st_hipflexor: 'genoux', st_child: 'genoux', st_cobra: 'dos', st_shoulder: 'epaules'
   };
-  Object.keys(EX).forEach(function (id) { EX[id].z = (Z[id] || '').split(' ').filter(Boolean); });
+  // Muscles principaux de chaque mouvement (douleur, contracture ou grosse courbature).
+  var ZM = {
+    row: 'quadri hautdos', ski: 'hautdos abdos bras', bike: 'quadri',
+    bb_row: 'hautdos bras', bb_lunge: 'quadri fessiers', bb_pushpress: 'bras quadri', bb_rdl: 'ischios fessiers', bb_thruster: 'quadri fessiers bras',
+    db_bench: 'pecs bras', db_bulgarian: 'quadri fessiers', db_row1: 'hautdos bras', db_stepup: 'quadri fessiers', db_stepover: 'quadri fessiers mollets',
+    db_curl: 'bras', db_sumo: 'adduct fessiers quadri', db_skull: 'bras', db_latlunge: 'adduct fessiers quadri', db_cleanpress: 'fessiers ischios bras',
+    db_devil: 'pecs fessiers ischios bras', db_thruster: 'quadri fessiers bras', db_press: 'bras nuque', db_raise: 'nuque', db_hipthrust: 'fessiers ischios',
+    db_snatch: 'fessiers ischios hautdos', renegade_row: 'hautdos abdos bras', farmer_carry: 'nuque hautdos',
+    kb_goblet: 'quadri fessiers', kb_swing: 'fessiers ischios', kb_uprow: 'nuque bras', kb_sdhp: 'fessiers adduct nuque',
+    ball_slam: 'abdos hautdos', ball_lunge: 'quadri fessiers', wall_ball: 'quadri fessiers',
+    box_jump: 'quadri mollets', bench_dips: 'bras pecs',
+    pushup: 'pecs bras', bridge: 'fessiers ischios', burpee: 'pecs quadri', climbers: 'abdos', situp: 'abdos nuque',
+    leg_raise: 'abdos', plank: 'abdos', jump_squat: 'quadri fessiers mollets', lunge_fwd: 'quadri fessiers', high_knees: 'mollets quadri', jacks: 'mollets',
+    superman: 'fessiers hautdos', shoulder_taps: 'abdos pecs', v_up: 'abdos', dead_bug: 'abdos', side_plank: 'abdos', lunge_jump: 'quadri fessiers mollets', hollow_rock: 'abdos',
+    arm_circles: '', air_squat: 'quadri', inchworm: 'ischios', lunge_twist: 'quadri adduct',
+    st_fold: 'ischios', st_quad: 'quadri', st_hipflexor: 'quadri', st_child: '', st_cobra: 'abdos', st_shoulder: 'hautdos'
+  };
+  Object.keys(EX).forEach(function (id) { EX[id].z = ((Z[id] || '') + ' ' + (ZM[id] || '')).split(' ').filter(Boolean); });
 
   Object.keys(EX).forEach(function (id) { EX[id].id = id; });  Object.keys(EX).forEach(function (id) { EX[id].id = id; });
 

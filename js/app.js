@@ -1822,7 +1822,7 @@
 
   // ------------------------------------------------------------------ douleurs : zones à ménager
   var ZONES = window.PRIME_ZONES || [];
-  var SAFE = ['dead_bug', 'bridge', 'plank', 'superman', 'bike', 'air_squat', 'jacks'];
+  var SAFE = ['dead_bug', 'bridge', 'plank', 'superman', 'bike', 'air_squat', 'jacks', 'side_plank', 'hollow_rock', 'arm_circles'];
   var WPOOL = ['jacks', 'arm_circles', 'air_squat', 'lunge_twist', 'inchworm', 'high_knees', 'dead_bug', 'bridge', 'superman', 'bike'];
   var SPOOL = ['st_fold', 'st_quad', 'st_hipflexor', 'st_child', 'st_cobra', 'st_shoulder', 'dead_bug', 'bridge'];
   function hurts(id) {
@@ -1852,9 +1852,12 @@
     sheet.innerHTML = '<div class="sheet-bg" data-sheet="close"></div><div class="sheet-p" role="dialog" aria-modal="true" aria-label="Douleurs">' +
       '<button class="ic sheet-x alt" data-sheet="close" aria-label="Fermer">' + I.close + '</button>' +
       '<h2 class="disp sheet-n">Où as-tu mal ?</h2>' +
-      '<p class="hint">Les mouvements qui sollicitent ces zones sont remplacés par d’autres. La séance garde sa durée.</p>' +
-      ZONES.map(function (z, i) {
-        return '<label class="sw"><span><b>' + z.n + '</b></span><input type="checkbox" id="pain-' + i + '" data-zone="' + z.id + '"' + (p[z.id] ? ' checked' : '') + '><i></i></label>';
+      '<p class="hint">Douleur, contracture ou grosse courbature : les mouvements qui sollicitent ces zones sont remplacés par d’autres. La séance garde sa durée.</p>' +
+      [['art', 'Articulations'], ['mus', 'Muscles']].map(function (gr) {
+        return '<h3 class="h2 pain-g">' + gr[1] + '</h3>' + ZONES.map(function (z, i) {
+          if ((z.g || 'art') !== gr[0]) return '';
+          return '<label class="sw"><span><b>' + z.n + '</b></span><input type="checkbox" id="pain-' + i + '" data-zone="' + z.id + '"' + (p[z.id] ? ' checked' : '') + '><i></i></label>';
+        }).join('');
       }).join('') +
       '<button class="btn sm ghost" data-act="nopain">Tout va bien</button>' +
       '<p class="note">Une douleur vive, qui dure ou qui revient, mérite l’avis d’un médecin ou d’un kiné avant de reprendre.</p></div>';
